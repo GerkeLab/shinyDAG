@@ -419,7 +419,9 @@ server <- function(input, output,session) {
           img <- readPNG(paste0(getwd(),"/DAGimageDoc_1.png"))
           imgRatio <- dim(img)[1]/dim(img)[2]
 
-          list(src = paste0(getwd(),"/DAGimageDoc_1.png"), width=imgWidth, height=min((imgWidth*dim(img)[1])/dim(img)[2],imgHeight))
+          list(src = paste0(getwd(),"/DAGimageDoc_1.png"), 
+               width=ifelse(dim(img)[2]>dim(img)[1],imgWidth,imgWidth/imgRatio), 
+               height=ifelse(dim(img)[1]>dim(img)[2],imgHeight,imgWidth*imgRatio))
           # list(src = paste0(getwd(),"/DAGimageDoc_1.png"), width=imgWidth, height=imgHeight)
 
         } else{
@@ -436,13 +438,11 @@ server <- function(input, output,session) {
           pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
 
           texPreview(obj = tikzTemp,
-                     # stem = paste0('eq',input$makeTikZ),
                      stem = 'DAGimage',
                      fileDir = getwd(),
                      imgFormat = 'png',
                      returnType = 'shiny',
                      density=300,
-                     # keep_pdf = TRUE,
                      usrPackages = pkgs)
           filename <- normalizePath(file.path(paste0(getwd(),'/DAGimage.png')))
 
