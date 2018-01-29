@@ -197,34 +197,7 @@ server <- function(input, output,session) {
                        inline=TRUE)
   })
   
-  # edit/display DAG
-  # output$dag1 <- renderPlot({
-  #   # edit dag aesthetics
-  #   
-  #   # font size
-  #   V(g)$label.cex = input$fontSize
-  #   
-  #   # font color
-  #   V(g)$label.color = input$fontColor
-  #   
-  #   # adjustment nodes
-  #   adjNode <- match(input$adjustNode,V(g)$name)
-  #   V(g)$shape[adjNode] <- "rectangle"
-  #   
-  #   # box size
-  #   V(g)$size = input$nodeWidth
-  #   V(g)$size2 = input$nodeHeight
-  #   
-  #   # curve edges
-  #   fromNode <- trimws(gsub(",.*","",input$curvEdges))
-  #   toNode <- trimws(gsub(".*,","",input$curvEdges))
-  #   g <- g %>%
-  #     set_edge_attr("curved", value=0) %>%
-  #     set_edge_attr("curved", E(.)[fromNode %--% toNode], input$curveAngle)
-  #   
-  #   plot(g)
-  # })
-
+ 
   output$arcList <- renderUI({
     checkboxGroupInput("arcListC","Select edges to curve",choices = paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2]),
                        inline=TRUE)
@@ -413,17 +386,25 @@ server <- function(input, output,session) {
           )
 
           filename <- normalizePath(file.path(paste0(getwd(),'/DAGimage.png')))
-          filename2 <- normalizePath(file.path(paste0(getwd(),'/DAGimageDoc.pdf')))
+          
+          img <- readPNG(paste0(getwd(),"/DAGimage.png"))
+          widthRatio <- imgWidth/dim(img)[2]
+          heightRatio <- imgHeight/dim(img)[1]
+          widthValue <- imgWidth
+          heightValue <- imgHeight
+          if(dim(img)[2]>=dim(img)[1]){
+            widthValue <- imgWidth
+            heightValue <- (dim(img)[1]/dim(img)[2])*imgWidth
+            heightValue <- min(widthRatio * dim(img)[1],imgHeight)
+          }
+          if(dim(img)[1]>=dim(img)[2]){
+            heightValue <- imgHeight
+            widthValue <- (dim(img)[2]/dim(img)[1])*imgHeight
+            widthValue <- min(heightRatio * dim(img)[2],imgWidth)
+          }
 
-          pdf_convert(paste0(getwd(),"/DAGimageDoc.pdf"),dpi=1200)
-          img <- readPNG(paste0(getwd(),"/DAGimageDoc_1.png"))
-          imgRatio <- dim(img)[1]/dim(img)[2]
-
-          list(src = paste0(getwd(),"/DAGimageDoc_1.png"), 
-               width=ifelse(dim(img)[2]>dim(img)[1],imgWidth,imgWidth/imgRatio), 
-               height=ifelse(dim(img)[1]>dim(img)[2],imgHeight,imgWidth*imgRatio))
-          # list(src = paste0(getwd(),"/DAGimageDoc_1.png"), width=imgWidth, height=imgHeight)
-
+          list(src = filename,width=widthValue,height=heightValue)
+          
         } else{
           startZ <- "\\begin{tikzpicture}[>=latex]"
           endZ <- "\\end{tikzpicture}"
@@ -464,7 +445,7 @@ server <- function(input, output,session) {
         myfile <- paste0(getwd(),"/DAGimageDoc.tex")
         file.copy(myfile, file)
       } else if (input$downloadType==3){
-        myfile <- paste0(getwd(),"/DAGimageDoc_1.png")
+        myfile <- paste0(getwd(),"/DAGimageDoc.png")
         file.copy(myfile, file)
       } else {
         myfile <- paste0(getwd(),"/DAGimageDoc.pdf")
