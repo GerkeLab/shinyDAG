@@ -477,7 +477,7 @@ server <- function(input, output,session) {
                  fileDir = getwd(),
                  imgFormat = 'png',
                  returnType = 'shiny',
-                 density=300,
+                 density=1200,
                  usrPackages = pkgs)
       filename <- normalizePath(file.path(paste0(getwd(),'/DAGimage.png')))
       
