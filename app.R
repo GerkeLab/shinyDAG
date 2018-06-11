@@ -1,26 +1,29 @@
 library(shiny)
 library(shinydashboard)
 library(DiagrammeR)
-library(magrittr)
 library(dagitty)
 library(stringr)
 library(igraph)
-library(xtable)
 library(texPreview)
-library(magick)
-library(pdftools)
-library(png)
+library(shinyAce)
+library(dplyr)
+library(ggdag)
 
 tex_opts$set(list(density=1200,
                   margin = list(left = 0, top = 0, right = 0, bottom = 0),
                   cleanup = c("aux","log")))
 
-ui <- dashboardPage(dashboardHeader(title = "ShinyDAG"),
+dir.create(file.path(getwd(), "www"))
+
+download.file(url="https://www.dropbox.com/s/ndmblxnkwvfwpot/GerkeLab-1200dpi-square.png?dl=1",
+              destfile = file.path(paste0(getwd(),'/www/GerkeLab.png')) )
+
+ui <- dashboardPage(dashboardHeader(title = div(img(src="GerkeLab.png",width=40,height=40),"shinyDAG")),
                     dashboardSidebar(disable = TRUE),
                     dashboardBody(
                       fluidRow(
                         box(title="DAG",
-                            imageOutput("tikzOut"),
+                            column(12, align="center",uiOutput("tikzOut")),
                             textOutput("adjustText"),
                             verbatimTextOutput("adjustSets"),
                             fluidRow(
@@ -28,13 +31,15 @@ ui <- dashboardPage(dashboardHeader(title = "ShinyDAG"),
                               column(6,"Closed paths",verbatimTextOutput("closedPaths"))
                             ),
                             selectInput("downloadType","Type of download",
-                                        choices=list("igraph R object" = 1,"Latex Tikz" = 2, "PNG" = 3,"PDF" = 4)),
-                            downloadButton("downloadButton"),
-                            verbatimTextOutput("densityInfo"),
-                            verbatimTextOutput("marginInfo")
+                                        choices=list("PDF" = 4, "PNG" = 3,"Latex Tikz" = 2, "dagitty R object" = 1,"ggdag R object" = 5)),
+                            downloadButton("downloadButton")
                             ),
                         tabBox(title="Options",
                                tabPanel("Build",
+                                        tags$style(type="text/css",
+                                                   ".shiny-output-error { visibility: hidden; }",
+                                                   ".shiny-output-error:before { visibility: hidden; }"
+                                        ),
                                         textInput("nodeLabel","To add a node: type a label and click the grid"),
                                         checkboxInput("clickType","Click to remove a node",value=FALSE),
                                         plotOutput("clickPad",
@@ -45,20 +50,30 @@ ui <- dashboardPage(dashboardHeader(title = "ShinyDAG"),
                                         ),
                                         actionButton("edgeButton1","Add edge!"),
                                         actionButton("edgeButton2","Remove edge!"),
-                                        uiOutput("arcList"),
                                         uiOutput("adjustNodeCreate"),
                                         uiOutput("exposureNodeCreate"),
                                         uiOutput("outcomeNodeCreate")),
                                tabPanel("Edit aesthetics",
+                                        helpText("WARNING: Adding additional nodes will reset aesthetics!"),
                                         uiOutput("curveAngle"),
-                                        helpText("An edge must be curved in first tab in order to control the degree of the curve."),
-                                        helpText("A negative degreee will change the orientation of the curve."),
+                                        helpText("A negative degree will change the orientation of the curve."),
                                         fluidRow(
                                           column(4,uiOutput("curveColor")),
                                           column(4,uiOutput("curveLty")),
                                           column(4,uiOutput("curveThick"))
                                         )
                                         ),
+                               tabPanel("Edit Latex",
+                                        helpText("WARNING: Editing code here will only change the appearance of the DAG and not the information on paths provided."),
+                                        uiOutput("texEdit"),
+                                        actionButton("redoTex","Initiate Editing!"),
+                                        conditionalPanel(
+                                          condition = "input.redoTex == 1",
+                                          uiOutput("tikzOutNew"),
+                                          selectInput("downloadType2","Type of download",
+                                                      choices=list("PDF" = 3,"PNG" = 2,"Latex Tikz" = 1)),
+                                          downloadButton("downloadButton2")
+                                        )),
                                tabPanel("About ShinyDAG",
                                         h6("Development Team: Jordan Creed and Travis Gerke"),
                                         h6("For more information on our lab and other projects please check out our website at http://travisgerke.com"),
@@ -71,33 +86,50 @@ ui <- dashboardPage(dashboardHeader(title = "ShinyDAG"),
 
 ###################################################################################################
 server <- function(input, output,session) {
-  # initalize empty DAG drawing
-  finalDag <- create_graph() 
+
   g <- make_empty_graph()
   
-  # make reactive 
-  makeReactiveBinding('finalDag')
   makeReactiveBinding('g')
   
   # click Pad points
   points <- list(x=vector("numeric", 0), y=vector("numeric", 0), name=vector("character",0)) 
   makeReactiveBinding('points')
   
+  points2 <- as.data.frame(cbind(x=rep(1:7,each=7), y=rep(1:7,7), name=rep(NA,49))) 
+  makeReactiveBinding('points2')
+  
   # edge data
   edges <- list(from=vector("character", 0), to=vector("character", 0)) 
   makeReactiveBinding('edges')
   
+  errorMessage1 <- NULL
+  
+  angleV <- vector("numeric",0)
+  makeReactiveBinding('angleV')
+  
   # adding/removing points on clickPad
   observeEvent(input$click1,{
+    if(input$nodeLabel %in% points$name){
+      errorMessage1<<- showNotification("Unpredictable Behavior: duplicate names",
+      duration = 5, 
+      closeButton = TRUE, type="warning"
+    )}
+    
     if(input$clickType==FALSE & input$nodeLabel!=""){
     points$x <<- c(points$x,round(input$click1$x))
     points$y <<- c(points$y,round(input$click1$y))
     points$name <<- c(points$name,input$nodeLabel)
+    points2$name <<- ifelse(round(input$click1$x)==points2$x & round(input$click1$y)==points2$y,
+                            input$nodeLabel,points2$name)
     } else if(input$clickType==TRUE){
       rmNode <- intersect(grep(round(input$click1$x),points$x),grep(round(input$click1$y),points$y))
-      points$x[[rmNode]] <<- NA
-      points$y[[rmNode]] <<- NA
-      points$name[[rmNode]] <<- NA
+      if(length(rmNode)>0){
+        points$x[[rmNode]] <<- NA
+        points$y[[rmNode]] <<- NA
+        points$name[[rmNode]] <<- NA
+        points2$name <<- ifelse(round(input$click1$x)==points2$x & round(input$click1$y)==points2$y,
+                                NA,points2$name)
+      }
     } else{
       points$x <<- points$x
       points$y <<- points$y
@@ -137,8 +169,8 @@ server <- function(input, output,session) {
   
   output$adjustText <- renderText({
     if(is.null(input$exposureNode) & is.null(input$outcomeNode)){
-      paste0("")
-    } else{paste0("Minimal sufficient adjustment sets to estimate the effect of ",
+      paste0("Minimal sufficient adjustment sets")
+    } else{paste0("Minimal sufficient adjustment set(s) to estimate the effect of ",
                   input$exposureNode," on ",input$outcomeNode)}
   })
   
@@ -153,9 +185,11 @@ server <- function(input, output,session) {
                             shape = "none") # shape = "rectangle" if adjusting 
     } else if(input$clickType==TRUE){
       rmNode <- intersect(grep(round(input$click1$x),V(g)$x),grep(round(input$click1$y),V(g)$y))
-      rmNode <- V(g)$name[[rmNode]]
-      g <<- g %>% delete_vertices(rmNode)
-    } else {
+      if(length(rmNode)>0){
+        rmNode <- V(g)$name[[rmNode]]
+        g <<- g %>% delete_vertices(rmNode)
+        } else {g <<- g}
+     } else {
       g <<- g
       }
   })
@@ -191,18 +225,7 @@ server <- function(input, output,session) {
     }
 
   })
-  
-  output$curvedEdges <- renderUI({
-    checkboxGroupInput("curvEdges","Curve these edges",choices = paste0(ends(g,E(g))[,1],",",ends(g,E(g))[,2]),
-                       inline=TRUE)
-  })
-  
- 
-  output$arcList <- renderUI({
-    checkboxGroupInput("arcListC","Select edges to curve",choices = paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2]),
-                       inline=TRUE)
-  })
-  
+
   output$adjustSets <- renderPrint({
     if(!is.null(input$exposureNode) & !is.null(input$outcomeNode)){
     daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
@@ -286,19 +309,21 @@ server <- function(input, output,session) {
       
       return(cat(pathData$path[closedPaths][str_count(pathData$path[closedPaths], "-") > 1],sep="\n"))} else{return(print(""))}
   })
-  
+
   output$curveAngle<-renderUI({
-    lapply(1:length(input$arcListC),function(i){
-      sliderInput(input$arcListC[[i]],paste0("Angle for ",input$arcListC[[i]]),
-                  min=-180,max=180,value=45)
+    if(length(ends(g,E(g))[,1])>=1){
+    lapply(1:length(ends(g,E(g))[,1]),function(i){
+      sliderInput(paste0("angle",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),paste0("Angle for ",paste0(ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])),
+                  min=-180,max=180,value=ifelse(is.null(input[[paste0("angle",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),0,input[[paste0("angle",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]))
     })
+    }
   })
-  
+
   output$curveColor<-renderUI({
     lapply(1:length(ends(g,E(g))[,1]),function(i){
       textInput(paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
                 paste0("Edge for ",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
-                value="black")
+                value=ifelse(is.null(input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"black",input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]))
     })
   })
   
@@ -306,7 +331,8 @@ server <- function(input, output,session) {
     lapply(1:length(ends(g,E(g))[,1]),function(i){
       selectInput(paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
                   paste0("Line type for ",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
-                  choices=c("solid","dashed"),selected = "solid")
+                  choices=c("solid","dashed"),
+                  selected = ifelse(is.null(input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"solid",input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]))
     })
   })
   
@@ -315,146 +341,279 @@ server <- function(input, output,session) {
       selectInput(paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
                   paste0("Line thickness for ",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]),
                   choices=c("ultra thin","very thin","thin","semithick","thick","very thick","ultra thick"),
-                  selected = "thin")
+                  selected = ifelse(is.null(input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"thin",input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]))
     })
   })
-  
-  
-  output$tikzOut<-renderImage({
-    imgWidth  <- session$clientData$output_tikzOut_width
-    imgHeight <- session$clientData$output_tikzOut_height
-        if(length(V(g)$name)>=1){
-          startZ <- "\\begin{tikzpicture}[>=latex]"
-          endZ <- "\\end{tikzpicture}"
 
-          nodeFrame <- as.data.frame(cbind(name=V(g)$name,x=V(g)$x, y=V(g)$y, adjust=V(g)$shape))
+    output$tikzOut<-renderUI({
+    if(length(V(g)$name)>=1){
+      styleZ <- "\\tikzset{ module/.style={draw, rectangle},
+      label/.style={ } }"
+      startZ <- "\\begin{tikzpicture}[>=latex]"
+      endZ <- "\\end{tikzpicture}"
+      pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
+      
+      nodeFrame <- points2
+      nodeFrame <- nodeFrame[nodeFrame$x>=min(nodeFrame[!is.na(nodeFrame$name),]$x) &
+                             nodeFrame$x<=max(nodeFrame[!is.na(nodeFrame$name),]$x) & 
+                             nodeFrame$y>=min(nodeFrame[!is.na(nodeFrame$name),]$y) & 
+                             nodeFrame$y<=max(nodeFrame[!is.na(nodeFrame$name),]$y),]
+      nodeFrame$name <- ifelse(is.na(nodeFrame$name),"~",nodeFrame$name)
+      nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ",nodeFrame$name), nodeFrame$name)
+      nodeLines <- vector("character",0)
+      for (i in unique(nodeFrame$y)){
+        createLines <- paste0(paste(nodeFrame[nodeFrame$y==i,]$nameA,collapse="&"),"\\\\")
+        nodeLines <- c(nodeLines,createLines)
+      }
+      nodeLines <- rev(nodeLines)
+      nodeLines2 <- nodeLines
+    
+      nodeLines <- paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {",paste(nodeLines,collapse=""),"};")
+      
+      edgeLines <- vector("character",0)
+      
+      if(length(E(g))>=1){
+      edgeFrame <- as.data.frame(ends(g,E(g)))
+      edgeFrame$name <- paste0(edgeFrame$V1,"->",edgeFrame$V2)
+      edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
+      edgeFrame$parent <- edgeFrame$child <- NA
+    
+      for(i in 1:length(edgeFrame$name)){
+          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),0)
+          edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color",edgeFrame$name[i])]]),"black",input[[paste0("color",edgeFrame$name[i])]])
+          edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
+          edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
+          # edgeFrame$loose[i] <- ifelse(is.null(input[[paste0("loose",edgeFrame$name[i])]]),1.5,input[[paste0("loose",edgeFrame$name[i])]])
+          edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
+                                        (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
+          edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
+                                       (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
+          createEdge <- paste0(edgeFrame$parent[i]," edge [bend left = ",edgeFrame$angle[i],
+                               ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
+                               "] node[auto] {$~$} ",edgeFrame$child[i]," ")
+          edgeLines <- c(edgeLines,createEdge)
+      }
+      }
 
-          nodeLines <- vector("character",0)
-          for(i in 1:length(nodeFrame$name)){
-            createNode <- paste0("\\node (",nodeFrame$name[i],") at (",nodeFrame$x[i],",",
-                                 nodeFrame$y[i],")",ifelse(nodeFrame$name[i] %in% input$adjustNode," [draw, rectangle] "," "),
-                                 "{",nodeFrame$name[i],"};")
-            nodeLines <- c(nodeLines,createNode)
-          }
-
-          fromNode <- trimws(gsub(",.*","",input$curvEdges))
-          toNode <- trimws(gsub(".*,","",input$curvEdges))
-
-          edgeLines <- vector("character",0)
-
-          if(length(E(g))>=1){
-          for(i in 1:length(ends(g,E(g))[,1])){
-            if(paste0(ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2]) %in% input$arcListC){
-              edgeAngle <- ifelse(is.null(input[[paste0(ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),45,as.numeric(input[[paste0(ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]))
-              edgeColor <- ifelse(is.null(input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"black",input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              edgeThickness <- ifelse(is.null(input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"thin",input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              edgeLineType <- ifelse(is.null(input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"solid",input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              createEdge <- paste0("\\path[->,color=",edgeColor,", ",edgeThickness,", ",edgeLineType,"]"," [auto] ","(",ends(g,E(g))[i,1],") edge",
-                                   " [bend left= ",edgeAngle,"] ",
-                                   "(",ends(g,E(g))[i,2],");")
-              edgeLines <- c(edgeLines,createEdge)
-            } else {
-              edgeColor <- ifelse(is.null(input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"black",input[[paste0("color",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              edgeThickness <- ifelse(is.null(input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"thin",input[[paste0("lineT",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              edgeLineType <- ifelse(is.null(input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]]),"solid",input[[paste0("lty",ends(g,E(g))[i,1],"->",ends(g,E(g))[i,2])]])
-              createEdge <- paste0("\\path[->,color=",edgeColor,", ",edgeThickness,", ",edgeLineType,"]","(",ends(g,E(g))[i,1],") edge",
-                                   "(",ends(g,E(g))[i,2],");")
-              edgeLines <- c(edgeLines,createEdge)
-            }
-          }
-          }
-
-          allLines <- c(startZ,nodeLines,edgeLines,endZ)
-          cat(allLines,sep="\n")
-
-          tikzTemp <- paste(allLines,collapse="")
-
-          useLib="\\usetikzlibrary{positioning,shapes.geometric}"
-
-          pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
-
-          texPreview(obj = tikzTemp,
-                     stem = 'DAGimage',
-                     fileDir = getwd(),
-                     imgFormat = 'png',
-                     returnType = 'shiny',
-                     density=tex_opts$get("density"),
-                     keep_pdf = TRUE,
-                     usrPackages = pkgs,
-                     margin = tex_opts$get("margin"),
-                     cleanup = tex_opts$get("cleanup")
-          )
-
-          filename <- normalizePath(file.path(paste0(getwd(),'/DAGimage.png')))
-          
-          img <- readPNG(paste0(getwd(),"/DAGimage.png"))
-          widthRatio <- imgWidth/dim(img)[2]
-          heightRatio <- imgHeight/dim(img)[1]
-          widthValue <- imgWidth
-          heightValue <- imgHeight
-          if(dim(img)[2]>=dim(img)[1]){
-            widthValue <- imgWidth
-            heightValue <- (dim(img)[1]/dim(img)[2])*imgWidth
-            heightValue <- min(widthRatio * dim(img)[1],imgHeight)
-          }
-          if(dim(img)[1]>=dim(img)[2]){
-            heightValue <- imgHeight
-            widthValue <- (dim(img)[2]/dim(img)[1])*imgHeight
-            widthValue <- min(heightRatio * dim(img)[2],imgWidth)
-          }
-
-          list(src = filename,width=widthValue,height=heightValue)
-          
-        } else{
-          startZ <- "\\begin{tikzpicture}[>=latex]"
-          endZ <- "\\end{tikzpicture}"
-
-          allLines <- c(startZ,endZ)
-          cat(allLines,sep="\n")
-
-          tikzTemp <- paste(allLines,collapse="")
-
-          useLib="\\usetikzlibrary{positioning,shapes.geometric}"
-
-          pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
-
-          texPreview(obj = tikzTemp,
-                     stem = 'DAGimage',
-                     fileDir = getwd(),
-                     imgFormat = 'png',
-                     returnType = 'shiny',
-                     density=300,
-                     usrPackages = pkgs)
-          filename <- normalizePath(file.path(paste0(getwd(),'/DAGimage.png')))
-
-          list(src = filename)
-        }
-
-    },deleteFile = FALSE)
+      edgeLines <- paste0(pathZ,paste(edgeLines,collapse=""),";")
+      
+      allLines <- c(styleZ,startZ,nodeLines,edgeLines,endZ)
+      
+      tikzTemp <- paste(allLines,collapse="")
+      
+      useLib="\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
+      
+      pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
+      
+      texPreview(obj = tikzTemp,
+                 stem = 'DAGimage',
+                 fileDir = paste0(getwd(),"/www"),
+                 imgFormat = 'png',
+                 returnType = 'shiny',
+                 density=tex_opts$get("density"),
+                 keep_pdf = TRUE,
+                 usrPackages = pkgs,
+                 margin = tex_opts$get("margin"),
+                 cleanup = tex_opts$get("cleanup")
+      )
+      
+      filename <- normalizePath(file.path(paste0(getwd(),'/www/DAGimageDoc.pdf')))
+      
+      return(tags$iframe(style="height:600px; width:100%",src = "DAGimageDoc.pdf", 
+                         scrolling="auto",seamless="seamless"))
+      
+    } else{
+      startZ <- "\\begin{tikzpicture}[>=latex]"
+      endZ <- "\\end{tikzpicture}"
+      
+      allLines <- c(startZ,endZ)
+      
+      tikzTemp <- paste(allLines,collapse="")
+      
+      useLib="\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
+      
+      pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
+      
+      texPreview(obj = tikzTemp,
+                 stem = 'DAGimage',
+                 fileDir = paste0(getwd(),"/www"),
+                 imgFormat = 'png',
+                 returnType = 'shiny',
+                 density=300,
+                 usrPackages = pkgs)
+      
+      filename <- normalizePath(file.path(paste0(getwd(),'/www/DAGimageDoc.pdf')))
+      
+      return(tags$iframe(style="height:600px; width:100%",src = "DAGimageDoc.pdf", zoom=300,
+                         scrolling="auto",seamless="seamless"))
+    }
+    
+  })
   
   output$downloadButton <- downloadHandler(
     filename = function() {
       paste0("DAG",Sys.Date(),ifelse(input$downloadType==1,".RData",
                                      ifelse(input$downloadType==2,".tex",
-                                            ifelse(input$downloadType==3,".png",".pdf"))))
+                                            ifelse(input$downloadType==3,".png",
+                                                   ifelse(input$downloadType==5,".RData",".pdf")))))
     },
     content = function(file) {
       if(input$downloadType==1){
-        save(g,file=file)
+        daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
+        daggityCode1 <- paste(daggityCode1,collapse=";")
+        daggityCode2 <- paste0("dag { ",daggityCode1, " }") 
+        
+        g2 <- dagitty(daggityCode2)
+        
+        exposures(g2) <- input$exposureNode
+        outcomes(g2) <- input$outcomeNode
+        adjustedNodes(g2) <- input$adjustNode
+        
+        dagitty_code <- g2
+        save(dagitty_code,file=file)
       } else if (input$downloadType==2){
-        myfile <- paste0(getwd(),"/DAGimageDoc.tex")
+        myfile <- paste0(getwd(),"/www/DAGimageDoc.tex")
+        # myfile <- "/www/DAGimageDoc.tex"
         file.copy(myfile, file)
       } else if (input$downloadType==3){
-        myfile <- paste0(getwd(),"/DAGimageDoc.png")
+        myfile <- paste0(getwd(),"/www/DAGimage.png")
+        # myfile <- "/www/DAGimage.png"
         file.copy(myfile, file)
-      } else {
-        myfile <- paste0(getwd(),"/DAGimageDoc.pdf")
+      } else if (input$downloadType==5) {
+        daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
+        daggityCode1 <- paste(daggityCode1,collapse=";")
+        daggityCode2 <- paste0("dag { ",daggityCode1, " }") 
+        
+        g2 <- dagitty(daggityCode2)
+        
+        exposures(g2) <- input$exposureNode
+        outcomes(g2) <- input$outcomeNode
+        adjustedNodes(g2) <- input$adjustNode
+        
+        tidy_dag <- tidy_dagitty(g2)
+        save(tidy_dag,file=file)
+      }else {
+        myfile <- paste0(getwd(),"/www/DAGimageDoc.pdf")
+        # myfile <- "/www/DAGimageDoc.pdf"
         file.copy(myfile, file)
     }
 }, contentType = NA
   )
   
+  output$texEdit <- renderUI({
+    if(length(V(g)$name)>=1){
+      styleZ <- "\\\\tikzset{ module/.style={draw, rectangle},
+      label/.style={ } }"
+      startZ <- "\\\\begin{tikzpicture}[>=latex]"
+      endZ <- "\\\\end{tikzpicture}"
+      pathZ <- "\\\\path[->,font=\\\\scriptsize,>=angle 90]"
+      
+      nodeFrame <- points2
+      nodeFrame <- nodeFrame[nodeFrame$x>=min(nodeFrame[!is.na(nodeFrame$name),]$x) &
+                               nodeFrame$x<=max(nodeFrame[!is.na(nodeFrame$name),]$x) & 
+                               nodeFrame$y>=min(nodeFrame[!is.na(nodeFrame$name),]$y) & 
+                               nodeFrame$y<=max(nodeFrame[!is.na(nodeFrame$name),]$y),]
+      nodeFrame$name <- ifelse(is.na(nodeFrame$name),"~",nodeFrame$name)
+      nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ",nodeFrame$name), nodeFrame$name)
+      nodeLines <- vector("character",0)
+      for (i in unique(nodeFrame$y)){
+        createLines <- paste0(paste(nodeFrame[nodeFrame$y==i,]$nameA,collapse="&"),"\\\\\\\\")
+        nodeLines <- c(nodeLines,createLines)
+      }
+      nodeLines <- rev(nodeLines)
+      nodeLines2 <- nodeLines
+      
+      nodeLines <- paste0("\\\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {",paste(nodeLines,collapse=""),"};")
+      
+      edgeLines <- vector("character",0)
+      
+      if(length(E(g))>=1){
+        edgeFrame <- as.data.frame(ends(g,E(g)))
+        edgeFrame$name <- paste0(edgeFrame$V1,"->",edgeFrame$V2)
+        edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
+        edgeFrame$parent <- edgeFrame$child <- NA
+        
+        for(i in 1:length(edgeFrame$name)){
+          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),22.5)
+          edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color",edgeFrame$name[i])]]),"black",input[[paste0("color",edgeFrame$name[i])]])
+          edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
+          edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
+          # edgeFrame$loose[i] <- ifelse(is.null(input[[paste0("loose",edgeFrame$name[i])]]),1.5,input[[paste0("loose",edgeFrame$name[i])]])
+          edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
+                                        (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
+          edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
+                                       (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
+          createEdge <- paste0(edgeFrame$parent[i]," edge [bend left = ",edgeFrame$angle[i],
+                               ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
+                               "] node[auto] {$~$} ",edgeFrame$child[i]," ")
+          edgeLines <- c(edgeLines,createEdge)
+        }
+      }
+      
+      edgeLines <- paste0(pathZ,paste(edgeLines,collapse=""),";")
+      
+      allLines <- c(styleZ,startZ,nodeLines,edgeLines,endZ)
 
+      tikzTemp <- paste(allLines,collapse="")
+
+
+    } else{
+      startZ <- "\\\\begin{tikzpicture}[>=latex]"
+      endZ <- "\\\\end{tikzpicture}"
+
+      allLines <- c(startZ,endZ)
+
+      tikzTemp <- paste(allLines,collapse="")
+
+    }
+    aceEditor("texChange",mode="latex",value=paste(allLines,collapse="\n"), theme="cobalt")
+  })
+  
+  output$tikzOutNew<-renderUI({
+
+      tikzTemp <- input$texChange
+      
+      useLib="\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
+      
+      pkgs=paste(buildUsepackage(pkg = list('tikz'),uselibrary = useLib),collapse='\n')
+      
+      texPreview(obj = tikzTemp,
+                 stem = 'DAGimageEdit',
+                 fileDir = paste0(getwd(),"/www"),
+                 imgFormat = 'png',
+                 returnType = 'shiny',
+                 density=tex_opts$get("density"),
+                 keep_pdf = TRUE,
+                 usrPackages = pkgs,
+                 margin = tex_opts$get("margin"),
+                 cleanup = tex_opts$get("cleanup")
+      )
+      
+      # filename <- normalizePath(file.path(paste0(getwd(),'/DAGimageEdit.png')))
+
+      tags$iframe(style="height:560px; width:100%",src = "DAGimageEditDoc.pdf", 
+                         scrolling="no",seamless="seamless")
+    
+  })
+  
+  output$downloadButton2 <- downloadHandler(
+    filename = function() {
+      paste0("DAG",Sys.Date(),ifelse(input$downloadType2==1,".tex",
+                                            ifelse(input$downloadType2==2,".png",".pdf")))
+    },
+    content = function(file) {
+      if(input$downloadType2==1){
+        myfile <- paste0(getwd(),"/www/DAGimageEditDoc.tex")
+        file.copy(myfile, file)
+      } else if (input$downloadType2==2){
+        myfile <- paste0(getwd(),"/www/DAGimageEdit.png")
+        file.copy(myfile, file)
+      } else {
+        myfile <- paste0(getwd(),"/www/DAGimageEditDoc.pdf")
+        file.copy(myfile, file)
+      } 
+    }, contentType = NA
+  )
   
 }
 
