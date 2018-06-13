@@ -24,6 +24,12 @@ The following DAG was reproduced from "A structural approach to selection bias" 
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1.png "Hernan Example")
 
+The DAG represents a study on the effects of antiretroviral therapy (E) on AIDS risk (D), where immunosuppression (U) is unmeasured. L represents presense of symptoms (such as fever, weight loss, CD4 count ...) and C represents censoring. 
+
+ShinyDAG provides the user with the information that in order to estimate the direct the direct effect of E on D the user should adjust for none of the variables provided. 
+
+![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/adjustSets.png "shinyDAG output")
+
 The DAG from the original article is shown below.
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1_hernan.png "Hernan Original")
