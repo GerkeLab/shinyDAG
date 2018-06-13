@@ -14,7 +14,7 @@ Coming soon!
 
 ### Editing DAG aesthetics
 
-![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNodeEdge.gif)
+![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/editEdge.gif)
 
 ## Example of shinyDAG
 
