@@ -24,6 +24,10 @@ The following DAG was reproduced from "A structural approach to selection bias" 
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1.png "Hernan Example")
 
+The DAG from the original article is shown below.
+
+![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1_hernan.png "Hernan Original")
+
 ## Accessing shinyDAG 
 
 Simply access [https://gerkelab.shinyapps.io/shinyDAG/](https://gerkelab.shinyapps.io/shinyDAG/) through the web browser of your choosing!
