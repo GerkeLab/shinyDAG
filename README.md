@@ -4,7 +4,7 @@ shinyDAG is a web application that uses R and Latex to create and assesses direc
 
 ## Citing shinyDAG
 
-Coming soon!
+[![DOI](https://zenodo.org/badge/118661864.svg)](https://zenodo.org/badge/latestdoi/118661864)
 
 ## Using shinyDAG
 
