@@ -8,9 +8,13 @@ Coming soon!
 
 ## Using shinyDAG
 
-#### Add a node
+### Adding nodes and edges
 
-![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNode.gif)
+![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNodeEdge.gif)
+
+### Editing DAG aesthetics
+
+![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNodeEdge.gif)
 
 ## Example of shinyDAG
 
@@ -24,13 +28,13 @@ Simply access [https://gerkelab.shinyapps.io/shinyDAG/](https://gerkelab.shinyap
 
 ## Using shinyDAG 
 
-
 The web based tool allows users to build their DAG based completely on user inputs. The resulting DAG aesthetics can then be altered to meet the users preferences. After selecting for the exposure and outcome, all open and closed paths are displayed as well as minimal adjustment sets and conditional independencies. 
-
 
 ## About Gerke Lab 
 
 Check us out at [http://www.travisgerke.com](http://www.travisgerke.com)
+
+![alt text](https://github.com/GerkeLab/hexLogoGerke/raw/master/GerkeLab-1200dpi-square.png "Gerke Logo")
 
 <!--![Alt Text](https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif)-->
 
