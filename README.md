@@ -6,6 +6,12 @@ shinyDAG is a web application that uses R and Latex to create and assesses direc
 
 Coming soon!
 
+## Using shinyDAG
+
+#### Add a node
+
+![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNode.gif)
+
 ## Example of shinyDAG
 
 The following DAG was reproduced from "A structural approach to selection bias" by Hernan, Hernandez-Diaz, and Robins (Figure 6A) using the shinyDAG web app.
@@ -26,5 +32,5 @@ The web based tool allows users to build their DAG based completely on user inpu
 
 Check us out at [http://www.travisgerke.com](http://www.travisgerke.com)
 
-![Alt Text](https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif)
+<!--![Alt Text](https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif)-->
 
