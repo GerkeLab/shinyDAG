@@ -8,6 +8,7 @@ library(texPreview)
 library(shinyAce)
 library(dplyr)
 library(ggdag)
+library(shinyWidgets)
 
 tex_opts$set(list(density=1200,
                   margin = list(left = 0, top = 0, right = 0, bottom = 0),
@@ -18,21 +19,39 @@ dir.create(file.path(getwd(), "www"))
 download.file(url="https://www.dropbox.com/s/ndmblxnkwvfwpot/GerkeLab-1200dpi-square.png?dl=1",
               destfile = file.path(paste0(getwd(),'/www/GerkeLab.png')) )
 
-ui <- dashboardPage(dashboardHeader(title = div(img(src="GerkeLab.png",width=40,height=40),"shinyDAG")),
+ui <- dashboardPage(title = "shinyDAG",
+                    dashboardHeader(title = div(img(src="GerkeLab.png",width=40,height=40),"shinyDAG")),
                     dashboardSidebar(disable = TRUE),
                     dashboardBody(
                       fluidRow(
                         box(title="DAG",
                             column(12, align="center",uiOutput("tikzOut")),
-                            textOutput("adjustText"),
-                            verbatimTextOutput("adjustSets"),
-                            fluidRow(
-                              column(6,"Open paths",verbatimTextOutput("openPaths")),
-                              column(6,"Closed paths",verbatimTextOutput("closedPaths"))
-                            ),
+                            # textOutput("adjustText"),
+                            # verbatimTextOutput("adjustSets"),
+                            # fluidRow(
+                            #   column(6,"Open paths",verbatimTextOutput("openPaths")),
+                            #   column(6,"Closed paths",verbatimTextOutput("closedPaths"))
+                            # ),
+                            # column(6,"Conditional Independencies",verbatimTextOutput("condInd")),
                             selectInput("downloadType","Type of download",
                                         choices=list("PDF" = 4, "PNG" = 3,"Latex Tikz" = 2, "dagitty R object" = 1,"ggdag R object" = 5)),
-                            downloadButton("downloadButton")
+                            downloadButton("downloadButton"),
+                            br(),br(),
+                            prettySwitch(
+                              inputId = "showFlow",
+                              label = "Examine DAG elements", 
+                              status = "primary",
+                              fill = TRUE
+                            ),
+                            conditionalPanel(condition = "input.showFlow == 1",
+                                             textOutput("adjustText"),
+                                             verbatimTextOutput("adjustSets"),
+                                             fluidRow(
+                                               column(6,"Open paths",verbatimTextOutput("openPaths")),
+                                               column(6,"Closed paths",verbatimTextOutput("closedPaths"))
+                                             ),
+                                             column(12,"Conditional Independencies",verbatimTextOutput("condInd")))
+                            #))
                             ),
                         tabBox(title="Options",
                                tabPanel("Build",
@@ -54,7 +73,10 @@ ui <- dashboardPage(dashboardHeader(title = div(img(src="GerkeLab.png",width=40,
                                         uiOutput("exposureNodeCreate"),
                                         uiOutput("outcomeNodeCreate")),
                                tabPanel("Edit aesthetics",
-                                        helpText("WARNING: Adding additional nodes will reset aesthetics!"),
+                                        # helpText("WARNING: Adding additional nodes will reset aesthetics!"),
+                                        selectInput("arrowShape","Select arrow head", choices = c("stealth","stealth'","diamond",
+                                                                                                  "triangle 90","hooks","triangle 45",
+                                                                                                  "triangle 60","hooks reversed","*"), selected = "stealth"),
                                         uiOutput("curveAngle"),
                                         helpText("A negative degree will change the orientation of the curve."),
                                         fluidRow(
@@ -104,8 +126,8 @@ server <- function(input, output,session) {
   
   errorMessage1 <- NULL
   
-  angleV <- vector("numeric",0)
-  makeReactiveBinding('angleV')
+  # angleV <- vector("numeric",0)
+  # makeReactiveBinding('angleV')
   
   # adding/removing points on clickPad
   observeEvent(input$click1,{
@@ -236,14 +258,14 @@ server <- function(input, output,session) {
     
     exposures(g2) <- input$exposureNode
     outcomes(g2) <- input$outcomeNode
-    adjustedNodes(g2) <- input$adjustNode
+    # adjustedNodes(g2) <- input$adjustNode
     
     adjustResults <- adjustmentSets(g2)
     return(adjustResults)} else{return(print("Please indicate exposure and outcome"))}
   })
   
   output$condInd <- renderPrint({
-    if(!is.null(input$exposureNode) & !is.null(input$outcomeNode)){
+    # if(!is.null(input$exposureNode) & !is.null(input$outcomeNode)){
       daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
       daggityCode1 <- paste(daggityCode1,collapse=";")
       daggityCode2 <- paste0("dag { ",daggityCode1, " }") 
@@ -253,9 +275,15 @@ server <- function(input, output,session) {
       exposures(g2) <- input$exposureNode
       outcomes(g2) <- input$outcomeNode
       adjustedNodes(g2) <- input$adjustNode
+      # 
+      # condResults <- impliedConditionalIndependencies(g2)
+      test <- impliedConditionalIndependencies(g2)
       
-      condResults <- impliedConditionalIndependencies(g2)
-      return(condResults)} else{return(print(""))}
+      return_list <- vector("character",0)
+      for(i in 1:length(test)){
+        return_list <- c(return_list,paste0(test[[i]]$X," is independent of ",test[[i]]$Y," given: ",paste0(test[[i]]$Z,collapse = " and ")))
+      }
+      return(cat(return_list, sep="\n"))#} else{return(print(""))}
   })
   
   output$openPaths <- renderPrint({
@@ -281,7 +309,7 @@ server <- function(input, output,session) {
       
       openPaths <- grep("TRUE",pathData$open)
       
-      return(cat(pathData$path[openPaths][str_count(pathData$path[openPaths], "-") > 1],sep="\n"))} else{return(print(""))}
+      return(cat(pathData$path[openPaths][str_count(pathData$path[openPaths], "-") >= 1],sep="\n"))} else{return(print(""))}
   })
   
   output$closedPaths <- renderPrint({
@@ -307,7 +335,7 @@ server <- function(input, output,session) {
       
       closedPaths <- grep("FALSE",pathData$open)
       
-      return(cat(pathData$path[closedPaths][str_count(pathData$path[closedPaths], "-") > 1],sep="\n"))} else{return(print(""))}
+      return(cat(pathData$path[closedPaths][str_count(pathData$path[closedPaths], "-") >= 1],sep="\n"))} else{return(print(""))}
   })
 
   output$curveAngle<-renderUI({
@@ -388,7 +416,7 @@ server <- function(input, output,session) {
                                         (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
           edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
                                        (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
-          createEdge <- paste0(edgeFrame$parent[i]," edge [bend left = ",edgeFrame$angle[i],
+          createEdge <- paste0(edgeFrame$parent[i]," edge [>=",input$arrowShape,", bend left = ",edgeFrame$angle[i],
                                ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
                                "] node[auto] {$~$} ",edgeFrame$child[i]," ")
           edgeLines <- c(edgeLines,createEdge)
@@ -534,7 +562,7 @@ server <- function(input, output,session) {
         edgeFrame$parent <- edgeFrame$child <- NA
         
         for(i in 1:length(edgeFrame$name)){
-          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),22.5)
+          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),0)
           edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color",edgeFrame$name[i])]]),"black",input[[paste0("color",edgeFrame$name[i])]])
           edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
           edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
@@ -543,7 +571,7 @@ server <- function(input, output,session) {
                                         (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
           edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
                                        (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
-          createEdge <- paste0(edgeFrame$parent[i]," edge [bend left = ",edgeFrame$angle[i],
+          createEdge <- paste0(edgeFrame$parent[i]," edge [>=",input$arrowShape,", bend left = ",edgeFrame$angle[i],
                                ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
                                "] node[auto] {$~$} ",edgeFrame$child[i]," ")
           edgeLines <- c(edgeLines,createEdge)
