@@ -22,7 +22,7 @@ v0.0.0 DOI: 10.5281/zenodo.1288713
 
 The following DAG was reproduced from "A structural approach to selection bias" by Hernan, Hernandez-Diaz, and Robins (Figure 6A) using the shinyDAG web app.
 
-![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1.pdf "Hernan Example")
+![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1.png "Hernan Example")
 
 ## Accessing shinyDAG 
 
