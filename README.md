@@ -12,11 +12,11 @@ v0.0.0 DOI: 10.5281/zenodo.1288713
 
 ### Adding nodes and edges
 
-![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/addNodeEdge.gif)
+![Alt Text](https://github.com/GerkeLab/ShinyDAG/raw/master/Figures/AddNodeEdge.gif)
 
 ### Editing DAG aesthetics
 
-![Alt Text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/editEdge.gif)
+![Alt Text](https://github.com/GerkeLab/ShinyDAG/raw/master/Figures/editEdge.gif)
 
 ## Example of shinyDAG
 
