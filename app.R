@@ -20,11 +20,11 @@ download.file(url="https://www.dropbox.com/s/ndmblxnkwvfwpot/GerkeLab-1200dpi-sq
               destfile = file.path(paste0(getwd(),'/www/GerkeLab.png')) )
 
 ui <- dashboardPage(title = "shinyDAG",
-                    dashboardHeader(title = div(img(src="GerkeLab.png",width=40,height=40),"shinyDAG")),
+                    dashboardHeader(disable=TRUE),
                     dashboardSidebar(disable = TRUE),
                     dashboardBody(
                       fluidRow(
-                        box(title="DAG",
+                        box(title="shinyDAG",
                             column(12, align="center",uiOutput("tikzOut")),
                             # textOutput("adjustText"),
                             # verbatimTextOutput("adjustSets"),
@@ -50,10 +50,11 @@ ui <- dashboardPage(title = "shinyDAG",
                                                column(6,"Open paths",verbatimTextOutput("openPaths")),
                                                column(6,"Closed paths",verbatimTextOutput("closedPaths"))
                                              ),
-                                             column(12,"Conditional Independencies",verbatimTextOutput("condInd")))
+                                             br(),
+                                             "Conditional Independencies",verbatimTextOutput("condInd"))
                             #))
                             ),
-                        tabBox(title="Options",
+                        tabBox(title=div(img(src="GerkeLab.png",width=40,height=40)),
                                tabPanel("Build",
                                         tags$style(type="text/css",
                                                    ".shiny-output-error { visibility: hidden; }",
@@ -96,10 +97,10 @@ ui <- dashboardPage(title = "shinyDAG",
                                                       choices=list("PDF" = 3,"PNG" = 2,"Latex Tikz" = 1)),
                                           downloadButton("downloadButton2")
                                         )),
-                               tabPanel("About ShinyDAG",
+                               tabPanel("About shinyDAG",
                                         h6("Development Team: Jordan Creed and Travis Gerke"),
                                         h6("For more information on our lab and other projects please check out our website at http://travisgerke.com"),
-                                        h6("All code is available from https://github.com/tgerke/shinyDAG"),
+                                        h6("All code is available from https://github.com/GerkeLab/ShinyDAG"),
                                         h6("Any errors or comments can be directed to travis.gerke@moffitt.org or jordan.h.creed@moffitt.org"))
                             )
                       )
@@ -619,8 +620,8 @@ server <- function(input, output,session) {
       
       # filename <- normalizePath(file.path(paste0(getwd(),'/DAGimageEdit.png')))
 
-      tags$iframe(style="height:560px; width:100%",src = "DAGimageEditDoc.pdf", 
-                         scrolling="no",seamless="seamless")
+      return(tags$iframe(style="height:560px; width:100%",src = "DAGimageEditDoc.pdf", 
+                         scrolling="no",seamless="seamless"))
     
   })
   
