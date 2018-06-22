@@ -22,7 +22,7 @@ For comparison, the DAG from the original article is shown below.
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1_hernan.png "Hernan Original")
 
-The DAG represents a study on the effects of antiretroviral therapy (E) on AIDS risk (D), where immunosuppression (U) is unmeasured. L represents presence of symptoms (such as fever, weight loss, and diarrhea) and C represents censoring. A spurious path exists between E and D due to selection bias. We can see this in shinyDAG by ensuring that we've selected E as the exposure, D as the outcome, and toggling the "Examine DAG elements" button in the bottom left corner. The spurious open path is displayed as D <- U -> L -> C <- E.
+The DAG represents a study on the effects of antiretroviral therapy (E) on AIDS risk (D), where immunosuppression (U) is unmeasured. L represents presence of symptoms (such as fever, weight loss, and diarrhea) and C represents censoring. A spurious path exists between E and D due to selection bias. We can see this in shinyDAG by ensuring that we've selected E as the exposure, D as the outcome, adjusted for C, and then toggling the "Examine DAG elements" button in the bottom left corner. The spurious open path is displayed as D <- U -> L -> C <- E.
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/paths.png "shinyDAG path output")
 
@@ -30,15 +30,13 @@ One possible resolution for this bias is to adjust for L. After toggling L in th
 
 ![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/paths2.png "shinyDAG final path output")
 
-## Accessing shinyDAG
+## Other features
 
-Simply access [https://gerkelab.shinyapps.io/shinyDAG/](https://gerkelab.shinyapps.io/shinyDAG/) through the web browser of your choosing!
-
-## Using shinyDAG
-
-The web based tool allows users to build their DAG based completely on user inputs. The resulting DAG aesthetics can then be altered to meet the users preferences. After selecting for the exposure and outcome, all open and closed paths are displayed as well as minimal adjustment sets and conditional independencies.
+In addition PDF and PNG exports, users can download R objects in `ggdag` or `daggity` formats, as well as the source LaTeX code. The "Edit LaTeX" pane permits in-app modification of the LaTeX code with a preview window; however, users should be aware that the information in "Examine DAG elements" is not responsive to changes in the Edit LaTeX pane.
 
 ## Citing shinyDAG
+
+shinyDAG was developed by Jordan Creed and Travis Gerke.
 
 Concept DOI: 10.5281/zenodo.1288712
 
@@ -55,12 +53,3 @@ v0.0.0 DOI: 10.5281/zenodo.1288713
 1. Csardi G, Nepusz T: The igraph software package for complex network research, InterJournal,
   Complex Systems 1695. 2006. [http://igraph.org](http://igraph.org).
 1. Hernan MA, Hernandez-Díaz S, Robins JM. A structural approach to selection bias. Epidemiology 2004;15:615-625.
-
-## About Gerke Lab
-
-Check us out at [http://www.travisgerke.com](http://www.travisgerke.com)
-
-![alt text](https://github.com/GerkeLab/hexLogoGerke/raw/master/GerkeLab-1200dpi-square.png "Gerke Logo")
-
-<!--![Alt Text](https://media.giphy.com/media/vFKqnCdLPNOKc/giphy.gif)-->
-
