@@ -42,6 +42,8 @@ shinyDAG was developed by Jordan Creed and Travis Gerke.
 
 Concept DOI: 10.5281/zenodo.1288712
 
+v0.1.0 DOI: 10.5281/zenodo.1296477
+
 v0.0.0 DOI: 10.5281/zenodo.1288713
 
 ## References
