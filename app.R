@@ -44,14 +44,15 @@ ui <- dashboardPage(title = "shinyDAG",
                               fill = TRUE
                             ),
                             conditionalPanel(condition = "input.showFlow == 1",
-                                             textOutput("adjustText"),
-                                             verbatimTextOutput("adjustSets"),
+                                             # textOutput("adjustText"),
+                                             # verbatimTextOutput("adjustSets"),
                                              fluidRow(
                                                column(6,"Open paths",verbatimTextOutput("openPaths")),
                                                column(6,"Closed paths",verbatimTextOutput("closedPaths"))
-                                             ),
-                                             br(),
-                                             "Conditional Independencies",verbatimTextOutput("condInd"))
+                                             )#,
+                                             # br(),
+                                             # "Conditional Independencies",verbatimTextOutput("condInd")
+                                             )
                             #))
                             ),
                         tabBox(title=div(img(src="GerkeLab.png",width=40,height=40)),
@@ -86,7 +87,7 @@ ui <- dashboardPage(title = "shinyDAG",
                                           column(4,uiOutput("curveThick"))
                                         )
                                         ),
-                               tabPanel("Edit Latex",
+                               tabPanel("Edit LaTex",
                                         helpText("WARNING: Editing code here will only change the appearance of the DAG and not the information on paths provided."),
                                         uiOutput("texEdit"),
                                         actionButton("redoTex","Initiate Editing!"),
@@ -406,6 +407,8 @@ server <- function(input, output,session) {
       edgeFrame$name <- paste0(edgeFrame$V1,"->",edgeFrame$V2)
       edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
       edgeFrame$parent <- edgeFrame$child <- NA
+      
+      nodeFrame$revY <- rev(nodeFrame$y)
     
       for(i in 1:length(edgeFrame$name)){
           edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),0)
@@ -413,9 +416,13 @@ server <- function(input, output,session) {
           edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
           edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
           # edgeFrame$loose[i] <- ifelse(is.null(input[[paste0("loose",edgeFrame$name[i])]]),1.5,input[[paste0("loose",edgeFrame$name[i])]])
-          edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
+          # edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
+          #                               (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
+          # edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
+          #                              (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
+          edgeFrame$parent[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$revY-min(nodeFrame$revY)+1),"-",
                                         (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
-          edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
+          edgeFrame$child[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$revY-min(nodeFrame$revY)+1),"-",
                                        (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
           createEdge <- paste0(edgeFrame$parent[i]," edge [>=",input$arrowShape,", bend left = ",edgeFrame$angle[i],
                                ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
@@ -562,15 +569,16 @@ server <- function(input, output,session) {
         edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
         edgeFrame$parent <- edgeFrame$child <- NA
         
+        nodeFrame$revY <- rev(nodeFrame$y)
+        
         for(i in 1:length(edgeFrame$name)){
           edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle",edgeFrame$name[i])]]),as.numeric(input[[paste0("angle",edgeFrame$name[i])]]),0)
           edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color",edgeFrame$name[i])]]),"black",input[[paste0("color",edgeFrame$name[i])]])
           edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
           edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
-          # edgeFrame$loose[i] <- ifelse(is.null(input[[paste0("loose",edgeFrame$name[i])]]),1.5,input[[paste0("loose",edgeFrame$name[i])]])
-          edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
+          edgeFrame$parent[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$revY-min(nodeFrame$revY)+1),"-",
                                         (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
-          edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
+          edgeFrame$child[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$revY-min(nodeFrame$revY)+1),"-",
                                        (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
           createEdge <- paste0(edgeFrame$parent[i]," edge [>=",input$arrowShape,", bend left = ",edgeFrame$angle[i],
                                ", color = ",edgeFrame$color[i],",",edgeFrame$type[i],",", edgeFrame$thick[i],
