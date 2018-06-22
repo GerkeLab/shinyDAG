@@ -26,13 +26,6 @@ ui <- dashboardPage(title = "shinyDAG",
                       fluidRow(
                         box(title="shinyDAG",
                             column(12, align="center",uiOutput("tikzOut")),
-                            # textOutput("adjustText"),
-                            # verbatimTextOutput("adjustSets"),
-                            # fluidRow(
-                            #   column(6,"Open paths",verbatimTextOutput("openPaths")),
-                            #   column(6,"Closed paths",verbatimTextOutput("closedPaths"))
-                            # ),
-                            # column(6,"Conditional Independencies",verbatimTextOutput("condInd")),
                             selectInput("downloadType","Type of download",
                                         choices=list("PDF" = 4, "PNG" = 3,"Latex Tikz" = 2, "dagitty R object" = 1,"ggdag R object" = 5)),
                             downloadButton("downloadButton"),
@@ -49,11 +42,7 @@ ui <- dashboardPage(title = "shinyDAG",
                                              fluidRow(
                                                column(6,"Open paths",verbatimTextOutput("openPaths")),
                                                column(6,"Closed paths",verbatimTextOutput("closedPaths"))
-                                             )#,
-                                             # br(),
-                                             # "Conditional Independencies",verbatimTextOutput("condInd")
-                                             )
-                            #))
+                                             ))
                             ),
                         tabBox(title=div(img(src="GerkeLab.png",width=40,height=40)),
                                tabPanel("Build",
@@ -75,7 +64,6 @@ ui <- dashboardPage(title = "shinyDAG",
                                         uiOutput("exposureNodeCreate"),
                                         uiOutput("outcomeNodeCreate")),
                                tabPanel("Edit aesthetics",
-                                        # helpText("WARNING: Adding additional nodes will reset aesthetics!"),
                                         selectInput("arrowShape","Select arrow head", choices = c("stealth","stealth'","diamond",
                                                                                                   "triangle 90","hooks","triangle 45",
                                                                                                   "triangle 60","hooks reversed","*"), selected = "stealth"),
@@ -127,10 +115,7 @@ server <- function(input, output,session) {
   makeReactiveBinding('edges')
   
   errorMessage1 <- NULL
-  
-  # angleV <- vector("numeric",0)
-  # makeReactiveBinding('angleV')
-  
+    
   # adding/removing points on clickPad
   observeEvent(input$click1,{
     if(input$nodeLabel %in% points$name){
@@ -206,7 +191,7 @@ server <- function(input, output,session) {
                             x = round(input$click1$x), 
                             y = round(input$click1$y),
                             color = "white",
-                            shape = "none") # shape = "rectangle" if adjusting 
+                            shape = "none")
     } else if(input$clickType==TRUE){
       rmNode <- intersect(grep(round(input$click1$x),V(g)$x),grep(round(input$click1$y),V(g)$y))
       if(length(rmNode)>0){
@@ -260,14 +245,12 @@ server <- function(input, output,session) {
     
     exposures(g2) <- input$exposureNode
     outcomes(g2) <- input$outcomeNode
-    # adjustedNodes(g2) <- input$adjustNode
     
     adjustResults <- adjustmentSets(g2)
     return(adjustResults)} else{return(print("Please indicate exposure and outcome"))}
   })
   
   output$condInd <- renderPrint({
-    # if(!is.null(input$exposureNode) & !is.null(input$outcomeNode)){
       daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
       daggityCode1 <- paste(daggityCode1,collapse=";")
       daggityCode2 <- paste0("dag { ",daggityCode1, " }") 
@@ -277,8 +260,7 @@ server <- function(input, output,session) {
       exposures(g2) <- input$exposureNode
       outcomes(g2) <- input$outcomeNode
       adjustedNodes(g2) <- input$adjustNode
-      # 
-      # condResults <- impliedConditionalIndependencies(g2)
+
       test <- impliedConditionalIndependencies(g2)
       
       return_list <- vector("character",0)
@@ -415,11 +397,6 @@ server <- function(input, output,session) {
           edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color",edgeFrame$name[i])]]),"black",input[[paste0("color",edgeFrame$name[i])]])
           edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT",edgeFrame$name[i])]]),"thin",input[[paste0("lineT",edgeFrame$name[i])]])
           edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty",edgeFrame$name[i])]]),"solid",input[[paste0("lty",edgeFrame$name[i])]])
-          # edgeFrame$loose[i] <- ifelse(is.null(input[[paste0("loose",edgeFrame$name[i])]]),1.5,input[[paste0("loose",edgeFrame$name[i])]])
-          # edgeFrame$parent[i] <- paste0("(m-",grep(edgeFrame$V1[i],nodeLines2),"-",
-          #                               (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
-          # edgeFrame$child[i] <- paste0("(m-",grep(edgeFrame$V2[i],nodeLines2),"-",
-          #                              (nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$x-min(nodeFrame$x)+1),")")
           edgeFrame$parent[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$revY-min(nodeFrame$revY)+1),"-",
                                         (nodeFrame[nodeFrame$name==edgeFrame$V1[i],]$x-min(nodeFrame$x)+1),")")
           edgeFrame$child[i] <- paste0("(m-",(nodeFrame[nodeFrame$name==edgeFrame$V2[i],]$revY-min(nodeFrame$revY)+1),"-",
@@ -509,11 +486,9 @@ server <- function(input, output,session) {
         save(dagitty_code,file=file)
       } else if (input$downloadType==2){
         myfile <- paste0(getwd(),"/www/DAGimageDoc.tex")
-        # myfile <- "/www/DAGimageDoc.tex"
         file.copy(myfile, file)
       } else if (input$downloadType==3){
         myfile <- paste0(getwd(),"/www/DAGimage.png")
-        # myfile <- "/www/DAGimage.png"
         file.copy(myfile, file)
       } else if (input$downloadType==5) {
         daggityCode1 <- paste0(ends(g,E(g))[,1],"->",ends(g,E(g))[,2])
@@ -530,7 +505,6 @@ server <- function(input, output,session) {
         save(tidy_dag,file=file)
       }else {
         myfile <- paste0(getwd(),"/www/DAGimageDoc.pdf")
-        # myfile <- "/www/DAGimageDoc.pdf"
         file.copy(myfile, file)
     }
 }, contentType = NA
