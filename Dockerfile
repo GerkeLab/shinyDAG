@@ -49,5 +49,5 @@ RUN install2.r --error tinytex \
   
 ARG SHINY_APP_IDLE_TIMEOUT=600
 RUN sed -i "s/directory_index on;/app_idle_timeout ${SHINY_APP_IDLE_TIMEOUT};/g" /etc/shiny-server/shiny-server.conf
-COPY . /srv/shiny-server/ShinyDAG
+COPY . /srv/shiny-server/shinyDAG
 RUN chown -R shiny:shiny /srv/shiny-server/
