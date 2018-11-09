@@ -6,21 +6,29 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
   libssl-dev \
   libxml2-dev \
   libmagick++-dev \
-  libv8-3.14-dev
+  libv8-3.14-dev \
+  libglu1-mesa-dev \
+  freeglut3-dev \
+  mesa-common-dev \
+  libudunits2-dev \
+  libpoppler-cpp-dev \
+  libwebp-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/ \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
-RUN install2.r --error --deps TRUE shinyAce
-RUN install2.r --error --deps TRUE shinydashboard
-RUN install2.r --error --deps TRUE shinyWidgets
-RUN install2.r --error --deps TRUE DiagrammeR
-RUN apt-get update -qq && apt-get -y --no-install-recommends install libudunits2-dev
-RUN install2.r --error --deps TRUE ggdag
-RUN apt-get update -qq && apt-get -y --no-install-recommends install \
-  libglu1-mesa-dev freeglut3-dev mesa-common-dev
-RUN install2.r --error --deps TRUE igraph
-#RUN install2.r --error --deps TRUE texPreview
-RUN Rscript -e "devtools::install_github('metrumresearchgroup/texPreview', ref = 'e954322')"
-RUN apt-get update -qq && apt-get -y --no-install-recommends install libpoppler-cpp-dev
-RUN install2.r --error pdftools
+RUN install2.r --error --deps TRUE \
+  shinyAce \
+  shinydashboard \
+  shinyWidgets \
+  DiagrammeR \
+  ggdag \
+  igraph \
+  pdftools \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
+  
+RUN Rscript -e "devtools::install_github('metrumresearchgroup/texPreview', ref = 'e954322')" \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 # Install TinyTeX
 RUN install2.r --error tinytex \
@@ -36,7 +44,8 @@ RUN install2.r --error tinytex \
   && chown -R root:staff /opt/TinyTeX \ 
   && chmod -R a+w /opt/TinyTeX \ 
   && chmod -R a+wx /opt/TinyTeX/bin \ 
-  && echo "PATH=${PATH}" >> /usr/local/lib/R/etc/Renviron
+  && echo "PATH=${PATH}" >> /usr/local/lib/R/etc/Renviron \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
 ARG SHINY_APP_IDLE_TIMEOUT=600
 RUN sed -i "s/directory_index on;/app_idle_timeout ${SHINY_APP_IDLE_TIMEOUT};/g" /etc/shiny-server/shiny-server.conf
