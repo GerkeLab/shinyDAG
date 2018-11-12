@@ -18,6 +18,8 @@ tex_opts$set(list(
 
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
 
+# UI ----------------------------------------------------------------------
+
 ui <- dashboardPage(
   title = "shinyDAG",
   dashboardHeader(disable = TRUE),
@@ -116,8 +118,10 @@ ui <- dashboardPage(
   )
 )
 
-###################################################################################################
+
+# Server ------------------------------------------------------------------
 server <- function(input, output, session) {
+  # ---- Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
   dir.create(SESSION_TEMPDIR)
   onSessionEnded(function() {
@@ -125,14 +129,18 @@ server <- function(input, output, session) {
     unlink(SESSION_TEMPDIR, recursive = TRUE)
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
+
+
   
+  # ---- Reactive Values ----
   rv <- reactiveValues(
     g    = make_empty_graph(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
     pts2 = as.data.frame(cbind(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49)))
   )
 
-  # adding/removing points on clickPad
+  # ---- Click Pad ----
+  # adding/removing points/nodes on clickPad
   observeEvent(input$click1, {
     if (input$nodeLabel %in% rv$pts$name) {
       showNotification(
@@ -143,6 +151,7 @@ server <- function(input, output, session) {
     }
 
     if (input$clickType == FALSE & input$nodeLabel != "") {
+      # Add points
       rv$pts$x <- c(rv$pts$x, round(input$click1$x))
       rv$pts$y <- c(rv$pts$y, round(input$click1$y))
       rv$pts$name <- c(rv$pts$name, input$nodeLabel)
@@ -151,27 +160,40 @@ server <- function(input, output, session) {
         input$nodeLabel, 
         rv$pts2$name
       )
+      
+      # Add Nodes on DAG
+      rv$g <- rv$g %>% 
+        add_vertices(
+          1,
+          name = input$nodeLabel,
+          x = round(input$click1$x),
+          y = round(input$click1$y),
+          color = "white",
+          shape = "none"
+        )
     } else if (input$clickType == TRUE) {
-      rmNode <- intersect(grep(round(input$click1$x), rv$pts$x), grep(round(input$click1$y), rv$pts$y))
-      if (length(rmNode) > 0) {
-        rv$pts$x[[rmNode]] <- NA
-        rv$pts$y[[rmNode]] <- NA
-        rv$pts$name[[rmNode]] <- NA
+      # Remove Point
+      rmPoint <- intersect(grep(round(input$click1$x), rv$pts$x), grep(round(input$click1$y), rv$pts$y))
+      if (length(rmPoint) > 0) {
+        rv$pts$x[[rmPoint]] <- NA
+        rv$pts$y[[rmPoint]] <- NA
+        rv$pts$name[[rmPoint]] <- NA
         rv$pts2$name <- ifelse(
           round(input$click1$x) == rv$pts2$x & round(input$click1$y) == rv$pts2$y,
           NA, 
           rv$pts2$name
         )
       }
-    } else {
-      rv$pts$x <- rv$pts$x
-      rv$pts$y <- rv$pts$y
-      rv$pts$name <- rv$pts$name
+      
+      # Remove Node
+      rmNode <- intersect(grep(round(input$click1$x), V(rv$g)$x), grep(round(input$click1$y), V(rv$g)$y))
+      if (length(rmNode) > 0) {
+        rmNode <- V(rv$g)$name[[rmNode]]
+        rv$g <- rv$g %>% delete_vertices(rmNode)
+      }
     }
     updateTextInput(session, "nodeLabel", value = "")
   })
-
-
 
   # clickPad display
   output$clickPad <- renderPlot({
@@ -185,6 +207,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # ---- Node - Options ----
   output$adjustNodeCreate <- renderUI({
     checkboxGroupInput("adjustNode", "Select nodes to adjust",
       choices = rv$pts$name[!is.na(rv$pts$name)],
@@ -216,26 +239,8 @@ server <- function(input, output, session) {
       )
     }
   })
-
-  # add/remove nodes on DAG
-  observeEvent(input$click1, {
-    if (input$clickType == FALSE & input$nodeLabel != "") {
-      rv$g <- rv$g %>% add_vertices(1,
-        name = input$nodeLabel,
-        x = round(input$click1$x),
-        y = round(input$click1$y),
-        color = "white",
-        shape = "none"
-      )
-    } else if (input$clickType == TRUE) {
-      rmNode <- intersect(grep(round(input$click1$x), V(rv$g)$x), grep(round(input$click1$y), V(rv$g)$y))
-      if (length(rmNode) > 0) {
-        rmNode <- V(rv$g)$name[[rmNode]]
-        rv$g <- rv$g %>% delete_vertices(rmNode)
-      }
-    }
-  })
-
+  
+  # ---- Edges - Add/Remove ----
   output$fromEdge <- renderUI({
     selectInput("fromEdge2", "Parent node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
   })
@@ -260,6 +265,7 @@ server <- function(input, output, session) {
     }
   })
 
+  # ---- DAG Diagnostics ----
   output$adjustSets <- renderPrint({
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
       daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
@@ -356,6 +362,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # ---- Appearance Interface ----
   output$curveAngle <- renderUI({
     g <- rv$g
     req(ends(g, E(g)))
@@ -403,6 +410,7 @@ server <- function(input, output, session) {
     })
   })
   
+  # ---- Render DAG ----
   output$tikzOut <- renderUI({
     tikzUpdateOutput()
     if (!file.exists(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"))) return(NULL)
@@ -418,11 +426,10 @@ server <- function(input, output, session) {
     )
   })
   
-  tikzUpdateOutput <- reactiveVal(TRUE)
+  tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
 
+  # Re-render TeX preview
   observe({
-    # Re-render TeX preview
-    # browser()
     if (length(V(rv$g)$name) >= 1) {
       styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
@@ -505,6 +512,8 @@ server <- function(input, output, session) {
     tikzUpdateOutput(!isolate(tikzUpdateOutput()))
   })
   
+  # ---- Download Files ----
+  # Merge tikz TeX source into main TeX file
   merge_tex_files <- function(main_file, input_file, out_file) {
     x <- readLines(main_file)
     y <- readLines(input_file)
@@ -567,6 +576,7 @@ server <- function(input, output, session) {
     }, contentType = NA
   )
 
+  # ---- TeX Editor ----
   output$texEdit <- renderUI({
     if (length(V(rv$g)$name) >= 1) {
       styleZ <- "\\\\tikzset{ module/.style={draw, rectangle},
