@@ -17,6 +17,7 @@ tex_opts$set(list(
 ))
 
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
+`%||%` <- function(x, y) if (is.null(x)) y else x
 
 # UI ----------------------------------------------------------------------
 
@@ -468,6 +469,20 @@ server <- function(input, output, session) {
   })
   
   tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
+  
+  edge_frame <- reactive({
+    req(ends(rv$g, E(rv$g)))
+    as_data_frame(ends(rv$g, E(rv$g))) %>% 
+      mutate(
+        name   = paste0(V1, "->", V2),
+        angle  = vapply(paste0("angle", name), function(n) input[[n]] %||%       0, double(1)),
+        color  = vapply(paste0("color", name), function(n) input[[n]] %||% "black", character(1)),
+        thick  = vapply(paste0("lineT", name), function(n) input[[n]] %||%  "thin", character(1)),
+        type   = vapply(paste0("lty", name),   function(n) input[[n]] %||% "solid", character(1)),
+        parent = NA,
+        child  = NA
+      )
+  })
 
   # Re-render TeX preview
   observe({
@@ -498,18 +513,13 @@ server <- function(input, output, session) {
       edgeLines <- vector("character", 0)
 
       if (length(E(rv$g)) >= 1) {
-        edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
-        edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
-        edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
-        edgeFrame$parent <- edgeFrame$child <- NA
+        # edge_frame() is a reactive that gathers values from aesthetics UI
+        # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
+        edgeFrame <- debounce(edge_frame, 1000)()
 
         nodeFrame$revY <- rev(nodeFrame$y)
 
-        for (i in 1:length(edgeFrame$name)) {
-          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle", edgeFrame$name[i])]]), as.numeric(input[[paste0("angle", edgeFrame$name[i])]]), 0)
-          edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color", edgeFrame$name[i])]]), "black", input[[paste0("color", edgeFrame$name[i])]])
-          edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT", edgeFrame$name[i])]]), "thin", input[[paste0("lineT", edgeFrame$name[i])]])
-          edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty", edgeFrame$name[i])]]), "solid", input[[paste0("lty", edgeFrame$name[i])]])
+        for (i in seq_len(nrow(edgeFrame))) {
           edgeFrame$parent[i] <- paste0(
             "(m-", (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$revY - min(nodeFrame$revY) + 1), "-",
             (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$x - min(nodeFrame$x) + 1), ")"
