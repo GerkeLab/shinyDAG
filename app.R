@@ -135,9 +135,13 @@ server <- function(input, output, session) {
   # ---- Reactive Values ----
   rv <- reactiveValues(
     g    = make_empty_graph(),
+    edges = list(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
-    pts2 = as.data.frame(cbind(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49)))
+    pts2 = data_frame(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
+  
+  # rv$edges is a named list, e.g. for A -> B:
+  # rv$edges["A_B"] = list(from = "A", to = "B")
 
   # ---- Click Pad ----
   # adding/removing points/nodes on clickPad
@@ -161,7 +165,7 @@ server <- function(input, output, session) {
         rv$pts2$name
       )
       
-      # Add Nodes on DAG
+      # Add Nodes to DAG
       rv$g <- rv$g %>% 
         add_vertices(
           1,
@@ -171,6 +175,7 @@ server <- function(input, output, session) {
           color = "white",
           shape = "none"
         )
+      updateTextInput(session, "nodeLabel", value = "")
     } else if (input$clickType == TRUE) {
       # Remove Point
       rmPoint <- intersect(grep(round(input$click1$x), rv$pts$x), grep(round(input$click1$y), rv$pts$y))
@@ -190,9 +195,11 @@ server <- function(input, output, session) {
       if (length(rmNode) > 0) {
         rmNode <- V(rv$g)$name[[rmNode]]
         rv$g <- rv$g %>% delete_vertices(rmNode)
+        
+        # Remove dependent edges
+        rv$edges <- rv$edges[!grepl(rmNode, rv$edges)]
       }
     }
-    updateTextInput(session, "nodeLabel", value = "")
   })
 
   # clickPad display
@@ -249,12 +256,19 @@ server <- function(input, output, session) {
     selectInput("toEdge2", "Child node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
   })
 
+  edge_key <- function(x, y) paste(x, y, sep = "_")
+  
   # add/remove edges to DAG
   observeEvent(input$edgeButton1, {
     if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
       rv$g <- rv$g %>%
         add_edges(c(input$fromEdge2, input$toEdge2)) %>%
         set_edge_attr("color", value = "black")
+      
+      
+      rv$edges[[edge_key(input$fromEdge2, input$toEdge2)]] <- list(
+        from = input$fromEdge2, to = input$toEdge2
+      )
     }
   })
 
@@ -262,6 +276,8 @@ server <- function(input, output, session) {
     if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
       rv$g <- rv$g %>%
         delete_edges(paste0(input$fromEdge2, "|", input$toEdge2))
+      
+      rv$edges <- rv$edges[setdiff(names(rv$edges), edge_key(input$fromEdge2, input$toEdge2))]
     }
   })
 
@@ -362,52 +378,77 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- Appearance Interface ----
-  output$curveAngle <- renderUI({
-    g <- rv$g
-    req(ends(g, E(g)))
-    if (length(ends(g, E(g))[, 1]) >= 1) {
-      lapply(1:length(ends(g, E(g))[, 1]), function(i) {
-        sliderInput(paste0("angle", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]), paste0("Angle for ", paste0(ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])),
-          min = -180, max = 180, value = ifelse(is.null(input[[paste0("angle", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]]), 0, input[[paste0("angle", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]])
-        )
-      })
+  # ---- Edit Aesthetics ----
+  
+  # ui_edge_controls() is designed to be lapply-ed over the edge list, and
+  # will create shinyInputs for each node pair.
+  ui_edge_controls <- function(x, inputFn, prefix_input, prefix_label, ...) {
+    from_to <- paste0(x$from, "->", x$to)
+    input_name <- paste0(prefix_input, from_to)
+    input_label <- paste0(prefix_label, " ", from_to)
+    
+    if (input_name %in% names(input)) {
+      # Make sure current value doesn't change
+      dots <- list(...)
+      current_value <- intersect(names(dots), c("selected", "value"))
+      dots[current_value] <- isolate(input[[input_name]])
+      dots$inputId <- input_name
+      dots$label <- input_label
+      do.call(inputFn, dots)
+    } else {
+      # Create new input
+      inputFn(input_name, input_label, ...)
     }
+  }
+  
+  output$curveAngle <- renderUI({
+    req(rv$edges)
+    lapply(
+      rv$edges,
+      ui_edge_controls,
+      inputFn = sliderInput,
+      prefix_input = "angle",
+      prefix_label = "Angle for",
+      min = -180, max = 180, value = 0, step = 5
+    )
   })
 
   output$curveColor <- renderUI({
-    g <- rv$g
-    req(ends(g, E(g)))
-    lapply(1:length(ends(g, E(g))[, 1]), function(i) {
-      textInput(paste0("color", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        paste0("Edge for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        value = ifelse(is.null(input[[paste0("color", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]]), "black", input[[paste0("color", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]])
-      )
-    })
+    req(rv$edges)
+    lapply(
+      rv$edges,
+      ui_edge_controls,
+      inputFn = textInput,
+      prefix_input = "color",
+      prefix_label = "Edge for",
+      value = "black"
+    )
   })
 
   output$curveLty <- renderUI({
-    g <- rv$g
-    req(ends(g, E(g)))
-    lapply(1:length(ends(g, E(g))[, 1]), function(i) {
-      selectInput(paste0("lty", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        paste0("Line type for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        choices = c("solid", "dashed"),
-        selected = ifelse(is.null(input[[paste0("lty", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]]), "solid", input[[paste0("lty", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]])
-      )
-    })
+    req(rv$edges)
+    lapply(
+      rv$edges,
+      ui_edge_controls,
+      inputFn = selectInput,
+      prefix_input = "lty",
+      prefix_label = "Line type for",
+      choices = c("solid", "dashed"),
+      selected = "solid"
+    )
   })
 
   output$curveThick <- renderUI({
-    g <- rv$g
-    req(ends(g, E(g)))
-    lapply(1:length(ends(g, E(g))[, 1]), function(i) {
-      selectInput(paste0("lineT", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        paste0("Line thickness for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
-        choices = c("ultra thin", "very thin", "thin", "semithick", "thick", "very thick", "ultra thick"),
-        selected = ifelse(is.null(input[[paste0("lineT", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]]), "thin", input[[paste0("lineT", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])]])
-      )
-    })
+    req(rv$edges)
+    lapply(
+      rv$edges,
+      ui_edge_controls,
+      inputFn = selectInput,
+      prefix_input = "lineT",
+      prefix_label = "Line thickness",
+      choices = c("ultra thin", "very thin", "thin", "semithick", "thick", "very thick", "ultra thick"),
+      selected = "thin"
+    )
   })
   
   # ---- Render DAG ----
@@ -585,7 +626,7 @@ server <- function(input, output, session) {
       endZ <- "\\\\end{tikzpicture}"
       pathZ <- "\\\\path[->,font=\\\\scriptsize,>=angle 90]"
 
-      nodeFrame <- points2
+      nodeFrame <- rv$pts2
       nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
         nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
         nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
