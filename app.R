@@ -126,27 +126,16 @@ server <- function(input, output, session) {
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
   
-  g <- make_empty_graph()
-
-  makeReactiveBinding("g")
-
-  # click Pad points
-  points <- list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0))
-  makeReactiveBinding("points")
-
-  points2 <- as.data.frame(cbind(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49)))
-  makeReactiveBinding("points2")
-
-  # edge data
-  edges <- list(from = vector("character", 0), to = vector("character", 0))
-  makeReactiveBinding("edges")
-
-  errorMessage1 <- NULL
+  rv <- reactiveValues(
+    g    = make_empty_graph(),
+    pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
+    pts2 = as.data.frame(cbind(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49)))
+  )
 
   # adding/removing points on clickPad
   observeEvent(input$click1, {
-    if (input$nodeLabel %in% points$name) {
-      errorMessage1 <<- showNotification(
+    if (input$nodeLabel %in% rv$pts$name) {
+      showNotification(
         "Unpredictable Behavior: duplicate names",
         duration = 5,
         closeButton = TRUE, type = "warning"
@@ -154,30 +143,30 @@ server <- function(input, output, session) {
     }
 
     if (input$clickType == FALSE & input$nodeLabel != "") {
-      points$x <<- c(points$x, round(input$click1$x))
-      points$y <<- c(points$y, round(input$click1$y))
-      points$name <<- c(points$name, input$nodeLabel)
-      points2$name <<- ifelse(
-        round(input$click1$x) == points2$x & round(input$click1$y) == points2$y,
+      rv$pts$x <- c(rv$pts$x, round(input$click1$x))
+      rv$pts$y <- c(rv$pts$y, round(input$click1$y))
+      rv$pts$name <- c(rv$pts$name, input$nodeLabel)
+      rv$pts2$name <- ifelse(
+        round(input$click1$x) == rv$pts2$x & round(input$click1$y) == rv$pts2$y,
         input$nodeLabel, 
-        points2$name
+        rv$pts2$name
       )
     } else if (input$clickType == TRUE) {
-      rmNode <- intersect(grep(round(input$click1$x), points$x), grep(round(input$click1$y), points$y))
+      rmNode <- intersect(grep(round(input$click1$x), rv$pts$x), grep(round(input$click1$y), rv$pts$y))
       if (length(rmNode) > 0) {
-        points$x[[rmNode]] <<- NA
-        points$y[[rmNode]] <<- NA
-        points$name[[rmNode]] <<- NA
-        points2$name <<- ifelse(
-          round(input$click1$x) == points2$x & round(input$click1$y) == points2$y,
+        rv$pts$x[[rmNode]] <- NA
+        rv$pts$y[[rmNode]] <- NA
+        rv$pts$name[[rmNode]] <- NA
+        rv$pts2$name <- ifelse(
+          round(input$click1$x) == rv$pts2$x & round(input$click1$y) == rv$pts2$y,
           NA, 
-          points2$name
+          rv$pts2$name
         )
       }
     } else {
-      points$x <<- points$x
-      points$y <<- points$y
-      points$name <<- points$name
+      rv$pts$x <- rv$pts$x
+      rv$pts$y <- rv$pts$y
+      rv$pts$name <- rv$pts$name
     }
     updateTextInput(session, "nodeLabel", value = "")
   })
@@ -186,33 +175,33 @@ server <- function(input, output, session) {
 
   # clickPad display
   output$clickPad <- renderPlot({
-    if (length(points$x >= 1)) {
-      plot(points$x, points$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
-      text(points$x, points$y, labels = points$name, cex = 2)
+    if (length(rv$pts$x >= 1)) {
+      plot(rv$pts$x, rv$pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
+      text(rv$pts$x, rv$pts$y, labels = rv$pts$name, cex = 2)
       grid()
     } else {
-      plot(points$x, points$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
+      plot(rv$pts$x, rv$pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
       grid()
     }
   })
 
   output$adjustNodeCreate <- renderUI({
     checkboxGroupInput("adjustNode", "Select nodes to adjust",
-      choices = points$name[!is.na(points$name)],
+      choices = rv$pts$name[!is.na(rv$pts$name)],
       inline = TRUE
     )
   })
 
   output$exposureNodeCreate <- renderUI({
     checkboxGroupInput("exposureNode", "Exposure",
-      choices = points$name[!is.na(points$name)],
+      choices = rv$pts$name[!is.na(rv$pts$name)],
       inline = TRUE
     )
   })
 
   output$outcomeNodeCreate <- renderUI({
     checkboxGroupInput("outcomeNode", "Outcome",
-      choices = points$name[!is.na(points$name)],
+      choices = rv$pts$name[!is.na(rv$pts$name)],
       inline = TRUE
     )
   })
@@ -231,7 +220,7 @@ server <- function(input, output, session) {
   # add/remove nodes on DAG
   observeEvent(input$click1, {
     if (input$clickType == FALSE & input$nodeLabel != "") {
-      g <<- g %>% add_vertices(1,
+      rv$g <- rv$g %>% add_vertices(1,
         name = input$nodeLabel,
         x = round(input$click1$x),
         y = round(input$click1$y),
@@ -239,41 +228,41 @@ server <- function(input, output, session) {
         shape = "none"
       )
     } else if (input$clickType == TRUE) {
-      rmNode <- intersect(grep(round(input$click1$x), V(g)$x), grep(round(input$click1$y), V(g)$y))
+      rmNode <- intersect(grep(round(input$click1$x), V(rv$g)$x), grep(round(input$click1$y), V(rv$g)$y))
       if (length(rmNode) > 0) {
-        rmNode <- V(g)$name[[rmNode]]
-        g <<- g %>% delete_vertices(rmNode)
+        rmNode <- V(rv$g)$name[[rmNode]]
+        rv$g <- rv$g %>% delete_vertices(rmNode)
       }
     }
   })
 
   output$fromEdge <- renderUI({
-    selectInput("fromEdge2", "Parent node", choices = c("---", points$name[!is.na(points$name)]))
+    selectInput("fromEdge2", "Parent node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
   })
 
   output$toEdge <- renderUI({
-    selectInput("toEdge2", "Child node", choices = c("---", points$name[!is.na(points$name)]))
+    selectInput("toEdge2", "Child node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
   })
 
   # add/remove edges to DAG
   observeEvent(input$edgeButton1, {
-    if (input$fromEdge2 %in% V(g)$name & input$toEdge2 %in% V(g)$name) {
-      g <<- g %>%
+    if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
+      rv$g <- rv$g %>%
         add_edges(c(input$fromEdge2, input$toEdge2)) %>%
         set_edge_attr("color", value = "black")
     }
   })
 
   observeEvent(input$edgeButton2, {
-    if (input$fromEdge2 %in% V(g)$name & input$toEdge2 %in% V(g)$name) {
-      g <<- g %>%
+    if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
+      rv$g <- rv$g %>%
         delete_edges(paste0(input$fromEdge2, "|", input$toEdge2))
     }
   })
 
   output$adjustSets <- renderPrint({
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
       daggityCode1 <- paste(daggityCode1, collapse = ";")
       daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -290,7 +279,7 @@ server <- function(input, output, session) {
   })
 
   output$condInd <- renderPrint({
-    daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+    daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
     daggityCode1 <- paste(daggityCode1, collapse = ";")
     daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -311,7 +300,7 @@ server <- function(input, output, session) {
 
   output$openPaths <- renderPrint({
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
       daggityCode1 <- paste(daggityCode1, collapse = ";")
       daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -340,7 +329,7 @@ server <- function(input, output, session) {
 
   output$closedPaths <- renderPrint({
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
       daggityCode1 <- paste(daggityCode1, collapse = ";")
       daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -366,8 +355,10 @@ server <- function(input, output, session) {
       return(print(""))
     }
   })
-
+  
   output$curveAngle <- renderUI({
+    g <- rv$g
+    req(ends(g, E(g)))
     if (length(ends(g, E(g))[, 1]) >= 1) {
       lapply(1:length(ends(g, E(g))[, 1]), function(i) {
         sliderInput(paste0("angle", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]), paste0("Angle for ", paste0(ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2])),
@@ -378,6 +369,8 @@ server <- function(input, output, session) {
   })
 
   output$curveColor <- renderUI({
+    g <- rv$g
+    req(ends(g, E(g)))
     lapply(1:length(ends(g, E(g))[, 1]), function(i) {
       textInput(paste0("color", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
         paste0("Edge for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
@@ -387,6 +380,8 @@ server <- function(input, output, session) {
   })
 
   output$curveLty <- renderUI({
+    g <- rv$g
+    req(ends(g, E(g)))
     lapply(1:length(ends(g, E(g))[, 1]), function(i) {
       selectInput(paste0("lty", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
         paste0("Line type for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
@@ -397,6 +392,8 @@ server <- function(input, output, session) {
   })
 
   output$curveThick <- renderUI({
+    g <- rv$g
+    req(ends(g, E(g)))
     lapply(1:length(ends(g, E(g))[, 1]), function(i) {
       selectInput(paste0("lineT", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
         paste0("Line thickness for ", ends(g, E(g))[i, 1], "->", ends(g, E(g))[i, 2]),
@@ -416,7 +413,7 @@ server <- function(input, output, session) {
       style = "height:600px; width:100%", 
       src = serve_file_path,
       scrolling = "auto",
-      zoom = if (length(V(g)$name) < 1) 300,
+      zoom = if (length(V(rv$g)$name) < 1) 300,
       seamless = "seamless"
     )
   })
@@ -426,14 +423,14 @@ server <- function(input, output, session) {
   observe({
     # Re-render TeX preview
     # browser()
-    if (length(V(g)$name) >= 1) {
+    if (length(V(rv$g)$name) >= 1) {
       styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
       startZ <- "\\begin{tikzpicture}[>=latex]"
       endZ <- "\\end{tikzpicture}"
       pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
 
-      nodeFrame <- points2
+      nodeFrame <- rv$pts2
       nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
         nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
         nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
@@ -452,8 +449,8 @@ server <- function(input, output, session) {
 
       edgeLines <- vector("character", 0)
 
-      if (length(E(g)) >= 1) {
-        edgeFrame <- as.data.frame(ends(g, E(g)))
+      if (length(E(rv$g)) >= 1) {
+        edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
         edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
         edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
         edgeFrame$parent <- edgeFrame$child <- NA
@@ -529,7 +526,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       if (input$downloadType == 1) {
-        daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+        daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -551,7 +548,7 @@ server <- function(input, output, session) {
         myfile <- file.path(SESSION_TEMPDIR, "DAGimage.png")
         file.copy(myfile, file)
       } else if (input$downloadType == 5) {
-        daggityCode1 <- paste0(ends(g, E(g))[, 1], "->", ends(g, E(g))[, 2])
+        daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
 
@@ -571,7 +568,7 @@ server <- function(input, output, session) {
   )
 
   output$texEdit <- renderUI({
-    if (length(V(g)$name) >= 1) {
+    if (length(V(rv$g)$name) >= 1) {
       styleZ <- "\\\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
       startZ <- "\\\\begin{tikzpicture}[>=latex]"
@@ -597,8 +594,8 @@ server <- function(input, output, session) {
 
       edgeLines <- vector("character", 0)
 
-      if (length(E(g)) >= 1) {
-        edgeFrame <- as.data.frame(ends(g, E(g)))
+      if (length(E(rv$g)) >= 1) {
+        edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
         edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
         edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
         edgeFrame$parent <- edgeFrame$child <- NA
