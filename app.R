@@ -201,6 +201,13 @@ server <- function(input, output, session) {
     .nodes <- nodes[setdiff(names(nodes), hash)]
     if (length(.nodes)) .nodes else list()
   }
+  
+  node_frame <- function(nodes) {
+    if (!length(nodes)) return(data_frame())
+    bind_rows(nodes) %>% 
+      mutate(hash = names(nodes)) %>% 
+      select(hash, everything())
+  }
 
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
@@ -423,7 +430,7 @@ server <- function(input, output, session) {
   # clickPad display
   output$clickPad <- renderPlot({
     req(rv$nodes)
-    rv_pts <- bind_rows(rv$nodes) %>% filter(!is.na(x))
+    rv_pts <- node_frame(rv$nodes) %>% filter(!is.na(x))
     if (nrow(rv_pts)) {
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
       text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2)
