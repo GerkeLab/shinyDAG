@@ -164,7 +164,7 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     g    = make_empty_graph(),
     edges = list(),
-    nodes = character(),
+    nodes = list(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
     pts2 = data_frame(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
@@ -174,6 +174,25 @@ server <- function(input, output, session) {
   # rv$edges is a named list, e.g. for A -> B:
   # rv$edges["A_B"] = list(from = "A", to = "B")
   
+  # rv$nodes is a named list where name is a hash
+  # rv$nodes$abcdefg = list(name, x, y)
+  
+  node_new <- function(nodes, hash, name) {
+    nodes[[hash]] <- list(name = name, x = NA, y = NA)
+    nodes
+  }
+  
+  node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
+    nodes[[hash]]$name <- name %||% nodes[[hash]]$name
+    nodes[[hash]]$x    <-    x %||% nodes[[hash]]$x
+    nodes[[hash]]$y    <-    y %||% nodes[[hash]]$y
+    nodes
+  }
+  
+  node_delete <- function(nodes, hash) {
+    .nodes <- nodes[setdiff(names(nodes), hash)]
+    if (length(.nodes)) .nodes else list()
+  }
 
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
@@ -185,18 +204,21 @@ server <- function(input, output, session) {
     if (!nzchar(input$nodeLabel)) return(NULL)
     if (!length(node_list_btn_now) || !any(node_list_btn_now)) {
       # Node is new if a node label button is not toggled
-      new_node <- setNames(input$nodeLabel, digest::digest(Sys.time()))
-      new_node_state <- setNames(FALSE, node_btn_id(names(new_node)))
-      if (!new_node %in% rv$nodes) {
-        rv$nodes <- c(rv$nodes, new_node)
+      new_node_hash <- digest::digest(Sys.time())
+      if (!new_node_hash %in% names(rv$nodes)) {
+        # Update node list
+        rv$nodes <- node_new(rv$nodes, new_node_hash, input$nodeLabel)
+        # Update node btn state
+        new_node_state <- setNames(FALSE, node_btn_id(new_node_hash))
         node_list_btn_last_state <<- c(node_list_btn_last_state, new_node_state)
-        updateSearchInput(session, "nodeLabel", value = "")
         node_last_change_was_app(TRUE)
+        # Clear search input
+        updateSearchInput(session, "nodeLabel", value = "")
       }
     } else {
       # Editing mode (node label button toggled)
       s_node_list_btn <- isolate(node_list_btn_sel()) %>% node_btn_get_hash()
-      rv$nodes[s_node_list_btn] <- input$nodeLabel
+      rv$nodes <- node_update(rv$nodes, s_node_list_btn, input$nodeLabel)
     }
     debug_input(rv$nodes, "rv$nodes")
   })
@@ -211,13 +233,14 @@ server <- function(input, output, session) {
   
   output$nodeListButtons <- renderUI({
     req(rv$nodes)
+    if (!length(rv$nodes)) return()
     node_list_buttons <- vector("list", length(rv$nodes))
     for (i in seq_along(rv$nodes)) {
-      node_btn_id.this <- node_btn_id(names(rv$nodes))[i]
+      node_btn_id.this <- node_btn_id(names(rv$nodes)[i])
       node_list_buttons[[i]] <- bsButton(
         node_btn_id.this,
         value = node_list_btn_last_state[node_btn_id.this],
-        label = rv$nodes[i],
+        label = rv$nodes[[i]]$name,
         type = "toggle"
       )
     }
@@ -235,8 +258,9 @@ server <- function(input, output, session) {
   
   # ID of currently toggled button (otherwise NULL)
   node_list_btn_sel <- reactive({
-    req(node_list_btn_state())
-    if (any(node_list_btn_state()) && sum(node_list_btn_state()) == 1) {
+    if (is.null(node_list_btn_state())) {
+      NULL
+    } else if (any(node_list_btn_state()) && sum(node_list_btn_state()) == 1) {
       names(node_list_btn_state())[node_list_btn_state()]
     } else {
       NULL
@@ -280,7 +304,7 @@ server <- function(input, output, session) {
   observe({
     req(node_list_btn_sel())
     s_node_list_btn_id <- node_list_btn_sel() %>% node_btn_get_hash()
-    s_node_name <- isolate(rv$nodes[s_node_list_btn_id])
+    s_node_name <- isolate(rv$nodes[[s_node_list_btn_id]]$name)
     updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "Edit Node")
   })
   
@@ -293,8 +317,7 @@ server <- function(input, output, session) {
   # Delete node
   observeEvent(input$node_delete, {
     s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    rv_nodes <- rv$nodes[setdiff(names(rv$nodes), s_node_btn_hash)]
-    rv$nodes <- if (length(rv_nodes)) rv_nodes else character()
+    rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
     updateButton(session, node_list_btn_sel(), value = FALSE)
     
     debug_input(rv$nodes, "rv$nodes")
