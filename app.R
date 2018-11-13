@@ -171,6 +171,7 @@ server <- function(input, output, session) {
   # ---- Reactive Values ----
   rv <- reactiveValues(
     g    = make_empty_graph(),
+    gg   = make_empty_graph(),
     edges = list(),
     nodes = list(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
@@ -214,11 +215,23 @@ server <- function(input, output, session) {
     if (length(.nodes)) .nodes else list()
   }
   
-  node_frame <- function(nodes) {
+  node_frame <- function(nodes, full = FALSE) {
     if (!length(nodes)) return(data_frame())
-    bind_rows(nodes) %>% 
+    x <- bind_rows(nodes) %>% 
       mutate(hash = names(nodes)) %>% 
       select(hash, everything())
+    if (full) return(x)
+    filter(x, !is.na(x))
+  }
+  
+  node_vertices <- function(nodes) {
+    v_df <- node_frame(nodes)
+    vertices(
+      name = v_df$name,
+      x = v_df$x,
+      y = v_df$y,
+      hash = v_df$hash
+    )
   }
 
   # ---- Node Controls ----
@@ -387,16 +400,21 @@ server <- function(input, output, session) {
       return()
     }
     
+    node_hash <- node_btn_get_hash(node_list_btn_sel())
+    
     rv$nodes <- node_update(
       rv$nodes, 
-      node_btn_get_hash(node_list_btn_sel()), 
+      node_hash, 
       x = round(input$pad_click$x),
       y = round(input$pad_click$y))
     
-    # TODO wire points to DAG
-
+    debug_line("Rebuilding graph")
+    rv$gg <- make_empty_graph() + 
+      node_vertices(rv$nodes)
+    
     debug_input(rv$nodes, "rv$nodes")
   })
+  
   # adding/removing points/nodes on clickPad
   observeEvent(input$click1, {
     # if (input$nodeLabel %in% rv$pts$name) {
@@ -458,7 +476,7 @@ server <- function(input, output, session) {
   # clickPad display
   output$clickPad <- renderPlot({
     req(rv$nodes)
-    rv_pts <- node_frame(rv$nodes) %>% filter(!is.na(x))
+    rv_pts <- node_frame(rv$nodes)
     if (nrow(rv_pts)) {
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
       text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2)
