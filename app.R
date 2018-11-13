@@ -326,15 +326,29 @@ server <- function(input, output, session) {
   # Selecting existing node label enables node delete button
   output$node_ui_remove <- renderUI({
     req(node_list_btn_sel())
-    actionButton("node_delete", "", icon = icon("trash"), class = "btn-danger")
+    if (node_has_point()) {
+      actionButton("node_delete", "", icon = icon("eraser"), class = "btn-warning", alt = "Clear Node from DAG")
+    } else {
+      actionButton("node_delete", "", icon = icon("trash"), class = "btn-danger", alt = "Delete Node")
+    }
+  })
+  
+  # Erase or delete button?
+  node_has_point <- reactive({
+    req(node_list_btn_sel())
+    node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
+    !is.na(rv$nodes[[node_btn_hash]]$x)
   })
   
   # Delete node
   observeEvent(input$node_delete, {
     s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
-    updateButton(session, node_list_btn_sel(), value = FALSE)
-    
+    if (node_has_point()) {
+      rv$nodes <- node_update(rv$nodes, s_node_btn_hash, x = NA, y = NA)
+    } else {
+      rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
+      updateButton(session, node_list_btn_sel(), value = FALSE)
+    }
     debug_input(rv$nodes, "rv$nodes")
     debug_input(node_list_btn_state(), "node_list_btn_state()")
   })
