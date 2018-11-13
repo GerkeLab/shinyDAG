@@ -37,6 +37,10 @@ debug_line <- function(...) {
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
+warnNotification <- function(...) showNotification(
+  paste0(...), duration = 5, closeButton = TRUE, type = "warning"
+)
+
 # UI ----------------------------------------------------------------------
 
 ui <- dashboardPage(
@@ -89,9 +93,7 @@ ui <- dashboardPage(
           ),
           uiOutput("nodeListButtons"),
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
-          plotOutput("clickPad",
-            click = "click1"
-          ),
+          plotOutput("clickPad", click = "pad_click"),
           fluidRow(
             column(6, uiOutput("fromEdge")),
             column(6, uiOutput("toEdge"))
@@ -332,16 +334,38 @@ server <- function(input, output, session) {
   })
 
   # ---- Click Pad ----
+  # Add or move point on clickPad
+  observeEvent(input$pad_click, {
+    cli::cat_line("Click!")
+    
+    if (!length(rv$nodes)) {
+      warnNotification("Please add a node")
+      return()
+    } else if (is.null(node_list_btn_sel())) {
+      warnNotification("Please select a node")
+      return()
+    }
+    
+    rv$nodes <- node_update(
+      rv$nodes, 
+      node_btn_get_hash(node_list_btn_sel()), 
+      x = round(input$pad_click$x),
+      y = round(input$pad_click$y))
+    
+    # TODO wire points to DAG
+
+    debug_input(rv$nodes, "rv$nodes")
+  })
   # adding/removing points/nodes on clickPad
   observeEvent(input$click1, {
-    if (input$nodeLabel %in% rv$pts$name) {
-      showNotification(
-        "Unpredictable Behavior: duplicate names",
-        duration = 5,
-        closeButton = TRUE, type = "warning"
-      )
-    }
-
+    # if (input$nodeLabel %in% rv$pts$name) {
+    #   showNotification(
+    #     "Unpredictable Behavior: duplicate names",
+    #     duration = 5,
+    #     closeButton = TRUE, type = "warning"
+    #   )
+    # }
+    
     if (input$clickType == FALSE & input$nodeLabel != "") {
       # Add points
       rv$pts$x <- c(rv$pts$x, round(input$click1$x))
@@ -392,12 +416,14 @@ server <- function(input, output, session) {
 
   # clickPad display
   output$clickPad <- renderPlot({
-    if (length(rv$pts$x >= 1)) {
-      plot(rv$pts$x, rv$pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
-      text(rv$pts$x, rv$pts$y, labels = rv$pts$name, cex = 2)
+    req(rv$nodes)
+    rv_pts <- bind_rows(rv$nodes) %>% filter(!is.na(x))
+    if (nrow(rv_pts)) {
+      plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
+      text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2)
       grid()
     } else {
-      plot(rv$pts$x, rv$pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
+      plot(NA, NA, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
       grid()
     }
   })
