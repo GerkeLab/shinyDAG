@@ -17,6 +17,9 @@ tex_opts$set(list(
   cleanup = c("aux", "log")
 ))
 
+
+# Functions ---------------------------------------------------------------
+
 DEBUG <- getOption("shinydag.debug", FALSE)
 debug_input <- function(x, x_name = NULL) {
   if (!isTRUE(DEBUG)) return()
@@ -40,6 +43,8 @@ buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepa
 warnNotification <- function(...) showNotification(
   paste0(...), duration = 5, closeButton = TRUE, type = "warning"
 )
+
+invertNames <- function(x) setNames(names(x), unname(x))
 
 # UI ----------------------------------------------------------------------
 
@@ -98,8 +103,8 @@ ui <- dashboardPage(
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad", click = "pad_click"),
           fluidRow(
-            column(6, uiOutput("fromEdge")),
-            column(6, uiOutput("toEdge"))
+            column(6, selectizeInput("fromEdge2", "Parent Node", choices = c("Add a node to the plot area" = ""))),
+            column(6, selectizeInput("toEdge2", "Child Node", choices = c("Add a node to the plot area" = "")))
           ),
           actionButton("edgeButton1", "Add edge!"),
           actionButton("edgeButton2", "Remove edge!"),
@@ -201,6 +206,14 @@ server <- function(input, output, session) {
       if (warn) warnNotification('"', name, '" is already the name of a node')
       FALSE
     } else TRUE
+  }
+  
+  node_names <- function(nodes, all = FALSE) {
+    if (!length(nodes)) return(character())
+    x <- invertNames(sapply(nodes, function(x) x$name))
+    if (all) return(x)
+    has_position <- sapply(nodes, function(x) !is.na(x$x))
+    x[has_position]
   }
   
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
@@ -490,21 +503,21 @@ server <- function(input, output, session) {
   # ---- Node - Options ----
   output$adjustNodeCreate <- renderUI({
     checkboxGroupInput("adjustNode", "Select nodes to adjust",
-      choices = rv$pts$name[!is.na(rv$pts$name)],
+      choices = node_names(rv$nodes),
       inline = TRUE
     )
   })
 
   output$exposureNodeCreate <- renderUI({
     checkboxGroupInput("exposureNode", "Exposure",
-      choices = rv$pts$name[!is.na(rv$pts$name)],
+      choices = node_names(rv$nodes),
       inline = TRUE
     )
   })
 
   output$outcomeNodeCreate <- renderUI({
     checkboxGroupInput("outcomeNode", "Outcome",
-      choices = rv$pts$name[!is.na(rv$pts$name)],
+      choices = node_names(rv$nodes),
       inline = TRUE
     )
   })
@@ -521,12 +534,20 @@ server <- function(input, output, session) {
   })
   
   # ---- Edges - Add/Remove ----
-  output$fromEdge <- renderUI({
-    selectInput("fromEdge2", "Parent node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
-  })
-
-  output$toEdge <- renderUI({
-    selectInput("toEdge2", "Child node", choices = c("---", rv$pts$name[!is.na(rv$pts$name)]))
+  # TODO: rename input$fromEdge2 and toEdge2 to fromEdge/toEdge
+  
+  # Update Parent/Child node selection for edges
+  observe({
+    node_choices <- node_names(rv$nodes)
+    if (length(node_choices)) {
+      node_choices <- c("---" = "", node_choices)
+      updateSelectizeInput(session, "fromEdge2", choices = node_choices, selected = isolate(input$fromEdge2))
+      updateSelectizeInput(session, "toEdge2", choices = node_choices, selected = isolate(input$toEdge2))
+    } else {
+      node_choices <- c("Add a node to the plot area" = "")
+      updateSelectizeInput(session, "fromEdge2", choices = node_choices)
+      updateSelectizeInput(session, "toEdge2", choices = node_choices)
+    }
   })
 
   edge_key <- function(x, y) paste(x, y, sep = "_")
