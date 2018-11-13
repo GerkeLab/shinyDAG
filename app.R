@@ -6,6 +6,7 @@ library(stringr)
 library(igraph)
 library(texPreview)
 library(shinyAce)
+library(shinyBS)
 library(dplyr)
 library(ggdag)
 library(shinyWidgets)
@@ -15,6 +16,23 @@ tex_opts$set(list(
   margin = list(left = 0, top = 0, right = 0, bottom = 0),
   cleanup = c("aux", "log")
 ))
+
+DEBUG <- getOption("shinydag.debug", FALSE)
+debug_input <- function(x, x_name = NULL) {
+  if (!isTRUE(DEBUG)) return()
+  
+  if (length(x) == 1) {
+    cat("\n", if (!is.null(x_name)) paste0(x_name, ":"), if (length(names(x))) names(x), "-", x)
+  } else {
+    x <- tibble::enframe(x)
+    cat("", if (!is.null(x_name)) paste0(x_name, ":"), knitr::kable(x), sep = "\n")
+  }
+}
+debug_line <- function(...) {
+  if (!isTRUE(DEBUG)) return()
+  cli::cat_line(...)
+}
+
 
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
 `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -58,10 +76,19 @@ ui <- dashboardPage(
           tags$style(
             type = "text/css",
             ".shiny-output-error { visibility: hidden; }",
-            ".shiny-output-error:before { visibility: hidden; }"
+            ".shiny-output-error:before { visibility: hidden; }",
+            "#node_delete { margin-top: 25px; color: #FFF }",
+            "@media (min-width: 768px) { #node_delete { margin-left: -25px; } }"
           ),
-          textInput("nodeLabel", "To add a node: type a label and click the grid"),
-          checkboxInput("clickType", "Click to remove a node", value = FALSE),
+          fluidRow(
+            column(10, 
+              searchInput("nodeLabel", label = "Add a Node", value = "", placeholder = NULL,
+                          btnSearch = icon("check"), btnReset = icon("remove"), width = "100%")
+            ),
+            column(2, uiOutput("node_ui_remove"))
+          ),
+          uiOutput("nodeListButtons"),
+          # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad",
             click = "click1"
           ),
@@ -137,12 +164,149 @@ server <- function(input, output, session) {
   rv <- reactiveValues(
     g    = make_empty_graph(),
     edges = list(),
+    nodes = character(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
     pts2 = data_frame(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
   
+  node_list_btn_last_state <- c()
+  
   # rv$edges is a named list, e.g. for A -> B:
   # rv$edges["A_B"] = list(from = "A", to = "B")
+  
+
+  # ---- Node Controls ----
+  node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
+  node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
+  
+  # Add or modify node label on search button
+  observeEvent(input$nodeLabel_search, {
+    node_list_btn_now <- isolate(node_list_btn_state())
+    if (!nzchar(input$nodeLabel)) return(NULL)
+    if (!length(node_list_btn_now) || !any(node_list_btn_now)) {
+      # Node is new if a node label button is not toggled
+      new_node <- setNames(input$nodeLabel, digest::digest(Sys.time()))
+      new_node_state <- setNames(FALSE, node_btn_id(names(new_node)))
+      if (!new_node %in% rv$nodes) {
+        rv$nodes <- c(rv$nodes, new_node)
+        node_list_btn_last_state <<- c(node_list_btn_last_state, new_node_state)
+        updateSearchInput(session, "nodeLabel", value = "")
+        node_last_change_was_app(TRUE)
+      }
+    } else {
+      # Editing mode (node label button toggled)
+      s_node_list_btn <- isolate(node_list_btn_sel()) %>% node_btn_get_hash()
+      rv$nodes[s_node_list_btn] <- input$nodeLabel
+    }
+    debug_input(rv$nodes, "rv$nodes")
+  })
+  
+  # Untoggle node label on reset button (also clears text as well)
+  observeEvent(input$nodeLabel_reset, {
+    node_list_btn_now <- isolate(node_list_btn_state())
+    if (length(node_list_btn_now) && any(node_list_btn_now)) {
+      updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
+    }
+  })
+  
+  output$nodeListButtons <- renderUI({
+    req(rv$nodes)
+    node_list_buttons <- vector("list", length(rv$nodes))
+    for (i in seq_along(rv$nodes)) {
+      node_btn_id.this <- node_btn_id(names(rv$nodes))[i]
+      node_list_buttons[[i]] <- bsButton(
+        node_btn_id.this,
+        value = node_list_btn_last_state[node_btn_id.this],
+        label = rv$nodes[i],
+        type = "toggle"
+      )
+    }
+    tagList(
+      tags$p(tags$strong("Select a Node")),
+      node_list_buttons
+    )
+  })
+  
+  # Current state of the node buttons, zero-length if no nodes yet
+  node_list_btn_state <- reactive({
+    node_list_input_ids <- grep("node_toggle", names(input), value = TRUE, fixed = TRUE)
+    vapply(node_list_input_ids, function(n) input[[n]] %||% FALSE, FALSE)
+  })
+  
+  # ID of currently toggled button (otherwise NULL)
+  node_list_btn_sel <- reactive({
+    req(node_list_btn_state())
+    if (any(node_list_btn_state()) && sum(node_list_btn_state()) == 1) {
+      names(node_list_btn_state())[node_list_btn_state()]
+    } else {
+      NULL
+    }
+  })
+  
+  node_last_change_was_app <- reactiveVal(TRUE)
+  
+  # Only one node toggled at a time
+  observe({
+    req(length(node_list_btn_state()) > 0)
+    debug_input(isolate(node_last_change_was_app()), "node_last_change_was_app()")
+    debug_input(node_list_btn_last_state, "node_list_btn_last_state")
+    debug_input(node_list_btn_state(), "node_list_btn_state()")
+    
+    if (isolate(node_last_change_was_app())) {
+      # The app manually updated the button state, do nothing
+      node_last_change_was_app(FALSE)
+    } else {
+      # Use node_list_btn_last_state to determine which button was changed by user
+      # Last toggled button wins, all others turned off
+      node_list_btn_state_now <- node_list_btn_state()[names(node_list_btn_last_state)]
+      button_changed <- which(node_list_btn_state_now != node_list_btn_last_state)
+      if (length(button_changed) && sum(node_list_btn_state_now) > 1) {
+        button_turn_off <- setdiff(which(node_list_btn_state_now), button_changed)
+        for (i in button_turn_off) {
+          debug_line("Updating: ", names(node_list_btn_state_now)[i])
+          updateButton(session, names(node_list_btn_state_now)[i], value = FALSE)
+          node_last_change_was_app(TRUE)
+        }
+      }
+    }
+    node_list_btn_last_state <<- vapply(
+      names(node_list_btn_last_state),
+      function(n) input[[n]] %||% FALSE, 
+      FALSE
+    )
+  }, priority = -10)
+  
+  # Selecting existing node label button enables editing
+  observe({
+    req(node_list_btn_sel())
+    s_node_list_btn_id <- node_list_btn_sel() %>% node_btn_get_hash()
+    s_node_name <- isolate(rv$nodes[s_node_list_btn_id])
+    updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "Edit Node")
+  })
+  
+  # Selecting existing node label enables node delete button
+  output$node_ui_remove <- renderUI({
+    req(node_list_btn_sel())
+    actionButton("node_delete", "", icon = icon("trash"), class = "btn-danger")
+  })
+  
+  # Delete node
+  observeEvent(input$node_delete, {
+    s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
+    rv_nodes <- rv$nodes[setdiff(names(rv$nodes), s_node_btn_hash)]
+    rv$nodes <- if (length(rv_nodes)) rv_nodes else character()
+    updateButton(session, node_list_btn_sel(), value = FALSE)
+    
+    debug_input(rv$nodes, "rv$nodes")
+    debug_input(node_list_btn_state(), "node_list_btn_state()")
+  })
+  
+  # Clear nodeLabel input when no node buttons selected
+  observe({
+    req(!any(node_list_btn_state()))
+    # Clear node input
+    updateSearchInput(session, "nodeLabel", value = "", label = "Add a Node")
+  })
 
   # ---- Click Pad ----
   # adding/removing points/nodes on clickPad
