@@ -21,7 +21,7 @@ DEBUG <- getOption("shinydag.debug", FALSE)
 debug_input <- function(x, x_name = NULL) {
   if (!isTRUE(DEBUG)) return()
   
-  if (length(x) == 1) {
+  if (length(x) == 1 && !is.list(x)) {
     cat("\n", if (!is.null(x_name)) paste0(x_name, ":"), if (length(names(x))) names(x), "-", x)
   } else {
     x <- tibble::enframe(x)
@@ -151,8 +151,8 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   # ---- Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
-  dir.create(SESSION_TEMPDIR)
-  onSessionEnded(function() {
+  dir.create(SESSION_TEMPDIR, showWarnings = FALSE)
+  onStop(function() {
     message("Removing session tempdir: ", SESSION_TEMPDIR)
     unlink(SESSION_TEMPDIR, recursive = TRUE)
   })
