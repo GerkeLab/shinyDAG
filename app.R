@@ -190,6 +190,18 @@ server <- function(input, output, session) {
     nodes
   }
   
+  node_name_valid <- function(nodes, name, warn = FALSE) {
+    if (!nzchar(name)) {
+      warnNotification("Please specify a name for the node")
+      return(FALSE)
+    }
+    name_in_nodes <- vapply(nodes, function(n) name == n$name, FALSE)
+    if (any(name_in_nodes)) {
+      if (warn) warnNotification('"', name, '" is already the name of a node')
+      FALSE
+    } else TRUE
+  }
+  
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
     nodes[[hash]]$name <- name %||% nodes[[hash]]$name
     nodes[[hash]]$x    <-    x %||% nodes[[hash]]$x
@@ -216,7 +228,9 @@ server <- function(input, output, session) {
   # Add or modify node label on search button
   observeEvent(input$nodeLabel_search, {
     node_list_btn_now <- isolate(node_list_btn_state())
-    if (!nzchar(input$nodeLabel)) return(NULL)
+    if (!node_name_valid(rv$nodes, input$nodeLabel, warn = !any(node_list_btn_now))) {
+      return(NULL)
+    }
     if (!length(node_list_btn_now) || !any(node_list_btn_now)) {
       # Node is new if a node label button is not toggled
       new_node_hash <- digest::digest(Sys.time())
