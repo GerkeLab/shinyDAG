@@ -191,6 +191,7 @@ server <- function(input, output, session) {
   # rv$nodes is a named list where name is a hash
   # rv$nodes$abcdefg = list(name, x, y)
   
+  # ---- Node Helper Functions ----
   node_new <- function(nodes, hash, name) {
     nodes[[hash]] <- list(name = name, x = NA, y = NA)
     nodes
