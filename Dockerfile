@@ -25,6 +25,7 @@ RUN install2.r --error --deps TRUE \
   ggdag \
   igraph \
   pdftools \
+  shinyBS \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
 RUN Rscript -e "devtools::install_github('metrumresearchgroup/texPreview', ref = 'e954322')" \
