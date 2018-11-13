@@ -49,6 +49,7 @@ ui <- dashboardPage(
   dashboardSidebar(disable = TRUE),
   dashboardBody(
     fluidRow(
+      # ---- Box: DAG ----
       box(
         title = "shinyDAG",
         column(12, align = "center", uiOutput("tikzOut")),
@@ -73,8 +74,10 @@ ui <- dashboardPage(
           )
         )
       ),
+      # ---- Box: Controls ----
       tabBox(
         title = div(img(src = "GerkeLab.png", width = 40, height = 40)),
+        # ---- Tab: Build ----
         tabPanel(
           "Build",
           tags$style(
@@ -104,6 +107,7 @@ ui <- dashboardPage(
           uiOutput("exposureNodeCreate"),
           uiOutput("outcomeNodeCreate")
         ),
+        # ---- Tab: Edit Aesthetics ----
         tabPanel(
           "Edit aesthetics",
           selectInput("arrowShape", "Select arrow head", choices = c(
@@ -119,8 +123,9 @@ ui <- dashboardPage(
             column(4, uiOutput("curveThick"))
           )
         ),
+        # ---- Tab: Edit LaTeX ----
         tabPanel(
-          "Edit LaTex",
+          "Edit LaTeX",
           helpText("WARNING: Editing code here will only change the appearance of the DAG and not the information on paths provided."),
           uiOutput("texEdit"),
           actionButton("redoTex", "Initiate Editing!"),
@@ -133,6 +138,7 @@ ui <- dashboardPage(
             downloadButton("downloadButton2")
           )
         ),
+        # ---- Tab: About ----
         tabPanel(
           "About shinyDAG",
           h6("Development Team: Jordan Creed, Travis Gerke, and Garrick Aden-Buie"),
