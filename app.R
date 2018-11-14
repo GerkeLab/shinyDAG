@@ -502,11 +502,11 @@ server <- function(input, output, session) {
 
   # ---- Node - Options ----
   update_node_options <- function(nodes, inputId, updateFn, none_choice = TRUE, ...) {
-    available_choices <- c("None" = if (none_choice) "", node_names(nodes))
-    s_choice <- intersect(
-      c(isolate(input[[inputId]]), if (none_choice) ""), 
-      available_choices
-    )
+    available_choices <- c("None" = "", node_names(nodes))
+    if (!none_choice) available_choices <- available_choices[-1]
+    s_choice <- intersect(isolate(input[[inputId]]), available_choices)
+    if (!length(s_choice) && none_choice) s_choice <- ""
+    
     updateFn(session, 
              inputId, 
              choices = available_choices, 
@@ -515,18 +515,10 @@ server <- function(input, output, session) {
     )
   }
   observe({
-    update_node_options(rv$nodes, "adjustNode", none_choice = FALSE,
+    update_node_options(rv$nodes, "adjustNode", none_choice = FALSE, 
                         updateCheckboxGroupInput, inline = TRUE)
-  })
-  
-  observe({
-    update_node_options(rv$nodes, "exposureNode", 
-                        updateRadioButtons, inline = TRUE)
-  })
-
-  observe({
-    update_node_options(rv$nodes, "outcomeNode", 
-                        updateRadioButtons, inline = TRUE)
+    update_node_options(rv$nodes, "exposureNode", updateRadioButtons, inline = TRUE)
+    update_node_options(rv$nodes, "outcomeNode", updateRadioButtons, inline = TRUE)
   })
 
   output$adjustText <- renderText({
