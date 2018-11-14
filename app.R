@@ -107,8 +107,8 @@ ui <- dashboardPage(
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad", click = "pad_click"),
           fluidRow(
-            column(5, selectizeInput("fromEdge2", "Parent Node", choices = c("Add a node to the plot area" = ""))),
-            column(5, selectizeInput("toEdge2", "Child Node", choices = c("Add a node to the plot area" = ""))),
+            column(5, selectizeInput("from_edge", "Parent Node", choices = c("Add a node to the plot area" = ""))),
+            column(5, selectizeInput("to_edge", "Child Node", choices = c("Add a node to the plot area" = ""))),
             column(2, uiOutput("ui_edge_btn"))
           ),
           checkboxGroupInput("adjustNode", "Select nodes to adjust", inline = TRUE),
@@ -539,8 +539,6 @@ server <- function(input, output, session) {
   })
   
   # ---- Edges - Add/Remove ----
-  # TODO: rename input$fromEdge2 and toEdge2 to fromEdge/toEdge
-
   edge_key <- function(x, y) digest::digest(c(x, y))
   
   edge_frame <- function(edges, nodes, ...) {
@@ -563,42 +561,42 @@ server <- function(input, output, session) {
   observe({
     node_choices <- node_names(rv$nodes)
     if (length(node_choices)) {
-      updateSelectizeInput(session, "fromEdge2", 
+      updateSelectizeInput(session, "from_edge", 
                            choices = c("Choose edge parent" = "", node_choices), 
-                           selected = isolate(input$fromEdge2))
-      updateSelectizeInput(session, "toEdge2", 
+                           selected = isolate(input$from_edge))
+      updateSelectizeInput(session, "to_edge", 
                            choices = c("Choose edge child" = "", node_choices), 
-                           selected = isolate(input$toEdge2))
+                           selected = isolate(input$to_edge))
     } else if (nrow(node_frame(rv$nodes))) {
-      updateSelectizeInput(session, "fromEdge2", 
+      updateSelectizeInput(session, "from_edge", 
                            choices = c("Choose edge parent" = "", node_choices))
-      updateSelectizeInput(session, "toEdge2", 
+      updateSelectizeInput(session, "to_edge", 
                            choices = c("Choose edge child" = "", node_choices))
     } else {
       node_choices <- c("Add a node to the plot area" = "")
-      updateSelectizeInput(session, "fromEdge2", choices = node_choices)
-      updateSelectizeInput(session, "toEdge2", choices = node_choices)
+      updateSelectizeInput(session, "from_edge", choices = node_choices)
+      updateSelectizeInput(session, "to_edge", choices = node_choices)
     }
   })
   
   observeEvent(input$edge_btn, {
-    if (input$fromEdge2 == "") {
+    if (input$from_edge == "") {
       warnNotification('Please choose a "Parent" node')
       return()
-    } else if (input$toEdge2 == "") {
+    } else if (input$to_edge == "") {
       warnNotification('Please choose a "Child" node')
       return()
     }
     
-    this_edge_key <- edge_key(input$fromEdge2, input$toEdge2)
+    this_edge_key <- edge_key(input$from_edge, input$to_edge)
     if (this_edge_key %in% names(rv$edges)) {
       # Remove edge
       rv$edges <- rv$edges[setdiff(names(rv$edges), this_edge_key)]
     } else {
       # Add edge
       rv$edges[[this_edge_key]] <- list(
-        from  = input$fromEdge2, 
-        to    = input$toEdge2,
+        from  = input$from_edge, 
+        to    = input$to_edge,
         color = "black",
         angle = 0.0,
         lineT = "thin",
@@ -609,9 +607,9 @@ server <- function(input, output, session) {
   })
   
   output$ui_edge_btn <- renderUI({
-    if(is.null(input$fromEdge2) || is.null(input$toEdge2)) return()
-    this_edge_key <- edge_key(input$fromEdge2, input$toEdge2)
-    if (input$fromEdge2 == "" || input$toEdge2 == "") {
+    if(is.null(input$from_edge) || is.null(input$to_edge)) return()
+    this_edge_key <- edge_key(input$from_edge, input$to_edge)
+    if (input$from_edge == "" || input$to_edge == "") {
       # Disabled button
       actionButton("edge_btn", "", icon = icon("plus"), class = "disabled")
     } else if (this_edge_key %in% names(rv$edges)) {
