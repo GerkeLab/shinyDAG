@@ -521,10 +521,15 @@ server <- function(input, output, session) {
   output$clickPad <- renderPlot({
     req(rv$nodes)
     rv_pts <- node_frame(rv$nodes)
+    
     if (nrow(rv_pts)) {
+      rv_pts$color <- if (!is.null(node_list_btn_sel())) {
+        ifelse(rv_pts$hash == node_btn_get_hash(node_list_btn_sel()),
+               "firebrick1", "black")
+      } else "black"
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
-      text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2)
       grid()
+      text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
     } else {
       plot(NA, NA, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
       grid()
