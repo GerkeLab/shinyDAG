@@ -59,7 +59,7 @@ ui <- dashboardPage(
         title = "shinyDAG",
         column(12, align = "center", uiOutput("tikzOut")),
         selectInput("downloadType", "Type of download",
-          choices = list("PDF" = 4, "PNG" = 3, "Latex Tikz" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
+          choices = list("PDF" = 4, "PNG" = 3, "LaTeX TikZ" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
         ),
         downloadButton("downloadButton"),
         br(), br(),
@@ -138,7 +138,7 @@ ui <- dashboardPage(
             condition = "input.redoTex == 1",
             uiOutput("tikzOutNew"),
             selectInput("downloadType2", "Type of download",
-              choices = list("PDF" = 3, "PNG" = 2, "Latex Tikz" = 1)
+              choices = list("PDF" = 3, "PNG" = 2, "LaTeX TikZ" = 1)
             ),
             downloadButton("downloadButton2")
           )
