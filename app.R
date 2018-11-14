@@ -493,6 +493,18 @@ server <- function(input, output, session) {
       } else "black"
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
       grid()
+      if (length(rv$edges)) {
+        e_pts <- edge_points(rv$edges, rv$nodes, push_by = 0.05)
+        for (i in seq_len(nrow(e_pts))) {
+          arrows(
+            e_pts$from.x[i], e_pts$from.y[i],
+            e_pts$to.x[i], e_pts$to.y[i],
+            col = e_pts$color[i],
+            lty = e_pts$lty[i], 
+            length = 0.1
+          )
+        }
+      }
       text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
     } else {
       plot(NA, NA, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
@@ -549,6 +561,28 @@ server <- function(input, output, session) {
   
   edge_edges <- function(edges, nodes, ...) {
     do.call(edge, as.list(edge_frame(edges, nodes, ...)))
+  }
+  
+  edge_points <- function(edges, nodes, push_by = 0) {
+    e_df <- edge_frame(edges, nodes) 
+    
+    e_df %>% 
+      select(hash, from, to) %>% 
+      tidyr::gather(key, name, -hash) %>% 
+      left_join(node_frame(nodes)[, -1], by = "name") %>% 
+      tidyr::gather(var, pt, x:y) %>% 
+      mutate(var = paste(key, var, sep = ".")) %>% 
+      select(-name, -key) %>% 
+      tidyr::spread(var, pt) %>% 
+      left_join(e_df, by = "hash") %>% 
+      mutate(
+        d_x = to.x - from.x, 
+        d_y = to.y - from.y,
+        from.x = from.x + push_by * d_x, 
+        from.y = from.y + push_by * d_y, 
+        to.x   = to.x   - push_by * d_x, 
+        to.y   = to.y   - push_by * d_y
+      )
   }
   
   # Update Parent/Child node selection for edges
