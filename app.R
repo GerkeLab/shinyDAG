@@ -41,7 +41,9 @@ debug_line <- function(...) {
 
 
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
+`%??%` <- function(x, y) if (!is.null(x) && x != "") y
 
 warnNotification <- function(...) showNotification(
   paste0(...), duration = 5, closeButton = TRUE, type = "warning"
@@ -622,61 +624,79 @@ server <- function(input, output, session) {
   })
   
   # ---- DAG Diagnostics ----
-  output$adjustSets <- renderPrint({
-    if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-      daggityCode1 <- paste(daggityCode1, collapse = ";")
-      daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-
-      g2 <- dagitty(daggityCode2)
-
-      exposures(g2) <- input$exposureNode
-      outcomes(g2) <- input$outcomeNode
-
-      adjustResults <- adjustmentSets(g2)
-      return(adjustResults)
-    } else {
-      return(print("Please indicate exposure and outcome"))
-    }
+  g_dagitty <- reactive({
+    req(length(rv$edges))
+    edges <- edge_frame(rv$edges, rv$nodes)
+    dagitty_paths <- edges %>% 
+      glue::glue_data("{from}->{to};") %>% 
+      glue::glue_collapse()
+    dagitty_code <- glue::glue("dag {{ {dagitty_paths} }}")
+    
+    dagitty(dagitty_code)
   })
-
-  output$condInd <- renderPrint({
-    daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-    daggityCode1 <- paste(daggityCode1, collapse = ";")
-    daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-
-    g2 <- dagitty(daggityCode2)
-
-    exposures(g2) <- input$exposureNode
-    outcomes(g2) <- input$outcomeNode
-    adjustedNodes(g2) <- input$adjustNode
-
-    test <- impliedConditionalIndependencies(g2)
-
-    return_list <- vector("character", 0)
-    for (i in 1:length(test)) {
-      return_list <- c(return_list, paste0(test[[i]]$X, " is independent of ", test[[i]]$Y, " given: ", paste0(test[[i]]$Z, collapse = " and ")))
-    }
-    return(cat(return_list, sep = "\n")) # } else{return(print(""))}
-  })
+  
+  dagitty_apply <- function(gd, nodes, exposures = NULL, outcomes = NULL, adjusted = NULL) {
+    nodes <- invertNames(node_names(nodes))
+    if (!is.null(exposures)) exposures(gd)      <- nodes[exposures]
+    if (!is.null(outcomes))  outcomes(gd)       <- nodes[outcomes]
+    if (!is.null(adjusted))  adjustedNodes(gd)  <- nodes[adjusted]
+    gd
+  }
+  
+  # output$adjustSets <- renderPrint({
+  #   req(node_names(rv$nodes))
+  #   if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
+  #     gd <- g_dagitty() %>% 
+  #       dagitty_apply(
+  #         rv$nodes,
+  #         exposures = input$exposureNode,
+  #         outcomes = input$outcomeNode
+  #       )
+  #     
+  #     adjustResults <- adjustmentSets(gd)
+  #     return(adjustResults)
+  #   } else {
+  #     return(print("Please indicate exposure and outcome"))
+  #   }
+  # })
+  # 
+  # output$condInd <- renderPrint({
+  #   req(node_names(rv$nodes))
+  #   gd <- g_dagitty() %>% 
+  #     dagitty_apply(
+  #       rv$nodes,
+  #       exposures = input$exposureNode,
+  #       outcomes  = input$outcomeNode,
+  #       adjusted  = input$adjustNode
+  #     )
+  # 
+  #   test <- impliedConditionalIndependencies(gd)
+  # 
+  #   return_list <- vector("character", 0)
+  #   for (i in 1:length(test)) {
+  #     return_list <- c(return_list, paste0(test[[i]]$X, " is independent of ", test[[i]]$Y, " given: ", paste0(test[[i]]$Z, collapse = " and ")))
+  #   }
+  #   return(cat(return_list, sep = "\n")) # } else{return(print(""))}
+  # })
 
   output$openPaths <- renderPrint({
+    req(node_names(rv$nodes), input$exposureNode, input$outcomeNode)
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-      daggityCode1 <- paste(daggityCode1, collapse = ";")
-      daggityCode2 <- paste0("dag { ", daggityCode1, " }")
+      nodes <- invertNames(node_names(rv$nodes))
+      gd <- g_dagitty() %>% 
+        dagitty_apply(
+          rv$nodes,
+          exposures = input$exposureNode,
+          outcomes  = input$outcomeNode,
+          adjusted  = input$adjustNode
+        )
 
-      g2 <- dagitty(daggityCode2)
-
-      exposures(g2) <- input$exposureNode
-      outcomes(g2) <- input$outcomeNode
-      adjustedNodes(g2) <- input$adjustNode
-
-      allComb <- as.data.frame(combn(names(g2), 2))
+      allComb <- as.data.frame(combn(names(gd), 2))
 
       pathData <- list(path = vector("character", 0), open = vector("character", 0))
       for (i in 1:ncol(allComb)) {
-        pathResults <- paths(g2, from = allComb[1, i], to = allComb[2, i], Z = input$adjustNode)
+        pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
+                             Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
         pathData$path <- c(pathData$path, pathResults$paths)
         pathData$open <- c(pathData$open, pathResults$open)
       }
@@ -690,22 +710,23 @@ server <- function(input, output, session) {
   })
 
   output$closedPaths <- renderPrint({
+    req(node_names(rv$nodes), input$exposureNode, input$outcomeNode)
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-      daggityCode1 <- paste(daggityCode1, collapse = ";")
-      daggityCode2 <- paste0("dag { ", daggityCode1, " }")
+      nodes <- invertNames(node_names(rv$nodes))
+      gd <- g_dagitty() %>% 
+        dagitty_apply(
+          rv$nodes,
+          exposures = input$exposureNode,
+          outcomes  = input$outcomeNode,
+          adjusted  = input$adjustNode
+        )
 
-      g2 <- dagitty(daggityCode2)
-
-      exposures(g2) <- input$exposureNode
-      outcomes(g2) <- input$outcomeNode
-      adjustedNodes(g2) <- input$adjustNode
-
-      allComb <- as.data.frame(combn(names(g2), 2))
+      allComb <- as.data.frame(combn(names(gd), 2))
 
       pathData <- list(path = vector("character", 0), open = vector("character", 0))
       for (i in 1:ncol(allComb)) {
-        pathResults <- paths(g2, from = allComb[1, i], to = allComb[2, i], Z = input$adjustNode)
+        pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
+                             Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
         pathData$path <- c(pathData$path, pathResults$paths)
         pathData$open <- c(pathData$open, pathResults$open)
       }
