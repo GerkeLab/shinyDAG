@@ -247,6 +247,16 @@ server <- function(input, output, session) {
       hash = v_df$hash
     )
   }
+  
+  node_nearest <- function(nodes, coordinfo, threshold = 0.5) {
+    nodes %>% 
+      node_frame() %>% 
+      mutate(dist = (x - coordinfo$x)^2 + (y - coordinfo$y)^2) %>% 
+      arrange(dist) %>% 
+      filter(dist <= threshold) %>% 
+      slice(1) %>% 
+      select(-dist)
+  }
 
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
@@ -367,7 +377,7 @@ server <- function(input, output, session) {
   # Selecting existing node label enables node delete button
   output$node_ui_remove <- renderUI({
     req(node_list_btn_sel())
-    if (node_has_point()) {
+    if (node_btn_sel_has_point()) {
       actionButton("node_delete", "", icon = icon("eraser"), class = "btn-warning", alt = "Clear Node from DAG")
     } else {
       actionButton("node_delete", "", icon = icon("trash"), class = "btn-danger", alt = "Delete Node")
@@ -375,7 +385,7 @@ server <- function(input, output, session) {
   })
   
   # Erase or delete button?
-  node_has_point <- reactive({
+  node_btn_sel_has_point <- reactive({
     req(node_list_btn_sel())
     node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
     !is.na(rv$nodes[[node_btn_hash]]$x)
@@ -384,7 +394,7 @@ server <- function(input, output, session) {
   # Delete node
   observeEvent(input$node_delete, {
     s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    if (node_has_point()) {
+    if (node_btn_sel_has_point()) {
       rv$nodes <- node_update(rv$nodes, s_node_btn_hash, x = NA, y = NA)
     } else {
       rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
@@ -409,8 +419,28 @@ server <- function(input, output, session) {
     if (!length(rv$nodes)) {
       warnNotification("Please add a node")
       return()
-    } else if (is.null(node_list_btn_sel())) {
-      warnNotification("Please select a node")
+    }
+    
+    nearest_node <- node_nearest(rv$nodes, input$pad_click)
+    if (is.null(node_list_btn_sel())) {
+      if (nrow(nearest_node)) {
+        # Select node when clicked on
+        updateButton(session, node_btn_id(nearest_node$hash), value = TRUE)
+      } else {
+        # No node clicked or selected
+        warnNotification("Please select a node")
+      }
+      return()
+    } else if (nrow(nearest_node)) {
+      # Switch node selection if A selected and B clicked on
+      s_node_btn_hash <- node_list_btn_sel() %>% node_btn_get_hash()
+      # Deselect clicked-on node if already selected
+      if (isTRUE(nearest_node$hash == s_node_btn_hash)) {
+        updateButton(session, node_list_btn_sel(), value = FALSE)
+      } else {
+        updateButton(session, node_list_btn_sel(), value = FALSE)
+        updateButton(session, node_btn_id(nearest_node$hash), value = TRUE)
+      }
       return()
     }
     
