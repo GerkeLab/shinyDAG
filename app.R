@@ -10,6 +10,7 @@ library(shinyBS)
 library(dplyr)
 library(ggdag)
 library(shinyWidgets)
+# Additional libraries: tidyr, digest, rlang
 
 tex_opts$set(list(
   density = 1200,
@@ -24,7 +25,9 @@ DEBUG <- getOption("shinydag.debug", FALSE)
 debug_input <- function(x, x_name = NULL) {
   if (!isTRUE(DEBUG)) return()
   
-  if (length(x) == 1 && !is.list(x)) {
+  if (inherits(x, "igraph")) {
+    cat("", capture.output(print(x)), sep = "\n")
+  } else if (length(x) == 1 && !is.list(x)) {
     cat("\n", if (!is.null(x_name)) paste0(x_name, ":"), if (length(names(x))) names(x), "-", x)
   } else {
     x <- tibble::enframe(x)
@@ -90,6 +93,7 @@ ui <- dashboardPage(
             ".shiny-output-error { visibility: hidden; }",
             ".shiny-output-error:before { visibility: hidden; }",
             "#node_delete { margin-top: 25px; color: #FFF }",
+            "#edge_btn { margin-top: 25px; color: #FFF }",
             "@media (min-width: 768px) { #node_delete { margin-left: -25px; } }"
           ),
           fluidRow(
@@ -103,11 +107,10 @@ ui <- dashboardPage(
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad", click = "pad_click"),
           fluidRow(
-            column(6, selectizeInput("fromEdge2", "Parent Node", choices = c("Add a node to the plot area" = ""))),
-            column(6, selectizeInput("toEdge2", "Child Node", choices = c("Add a node to the plot area" = "")))
+            column(5, selectizeInput("fromEdge2", "Parent Node", choices = c("Add a node to the plot area" = ""))),
+            column(5, selectizeInput("toEdge2", "Child Node", choices = c("Add a node to the plot area" = ""))),
+            column(2, uiOutput("ui_edge_btn"))
           ),
-          actionButton("edgeButton1", "Add edge!"),
-          actionButton("edgeButton2", "Remove edge!"),
           checkboxGroupInput("adjustNode", "Select nodes to adjust", inline = TRUE),
           radioButtons("exposureNode", "Exposure", choices = c("None" = ""), inline = TRUE),
           radioButtons("outcomeNode", "Outcome", choices = c("None" = ""), inline = TRUE)
@@ -185,11 +188,28 @@ server <- function(input, output, session) {
   
   node_list_btn_last_state <- c()
   
-  # rv$edges is a named list, e.g. for A -> B:
-  # rv$edges["A_B"] = list(from = "A", to = "B")
+  # rv$edges is a named list, e.g. for hash(A) -> hash(B):
+  # rv$edges[edge_key(hash(A), hash(B))] = list(from = hash(A), to = hash(B))
   
   # rv$nodes is a named list where name is a hash
   # rv$nodes$abcdefg = list(name, x, y)
+  
+  # rv$gg rebuilds whenever nodes or edges (or options?) change
+  observe({
+    req(length(rv$nodes))
+    # debug_line("Rebuilding graph")
+    g <- make_empty_graph()
+    if (nrow(node_frame(rv$nodes))) {
+      g <- g + node_vertices(rv$nodes)
+    }
+    if (length(rv$edges)) {
+      # Add edges
+      g <- g + edge_edges(rv$edges, rv$nodes)
+    }
+    
+    rv$gg <- g
+    debug_input(rv$gg, "rv$gg")
+  })
   
   # ---- Node Helper Functions ----
   node_new <- function(nodes, hash, name) {
@@ -452,9 +472,9 @@ server <- function(input, output, session) {
       x = round(input$pad_click$x),
       y = round(input$pad_click$y))
     
-    debug_line("Rebuilding graph")
-    rv$gg <- make_empty_graph() + 
-      node_vertices(rv$nodes)
+    # debug_line("Rebuilding graph")
+    # rv$gg <- make_empty_graph() + 
+    #   node_vertices(rv$nodes)
     
     debug_input(rv$nodes, "rv$nodes")
   })
@@ -520,46 +540,89 @@ server <- function(input, output, session) {
   
   # ---- Edges - Add/Remove ----
   # TODO: rename input$fromEdge2 and toEdge2 to fromEdge/toEdge
+
+  edge_key <- function(x, y) digest::digest(c(x, y))
+  
+  edge_frame <- function(edges, nodes, ...) {
+    dots <- rlang::enexprs(...)
+    bind_rows(edges) %>% 
+      mutate(hash = names(edges)) %>% 
+      tidyr::gather(position, node_hash, from:to) %>% 
+      left_join(select(node_frame(nodes), hash, name), 
+                by = c("node_hash" = "hash")) %>% 
+      select(-node_hash) %>% 
+      tidyr::spread(position, name) %>% 
+      mutate(!!!dots)
+  }
+  
+  edge_edges <- function(edges, nodes, ...) {
+    do.call(edge, as.list(edge_frame(edges, nodes, ...)))
+  }
   
   # Update Parent/Child node selection for edges
   observe({
     node_choices <- node_names(rv$nodes)
     if (length(node_choices)) {
-      node_choices <- c("---" = "", node_choices)
-      updateSelectizeInput(session, "fromEdge2", choices = node_choices, selected = isolate(input$fromEdge2))
-      updateSelectizeInput(session, "toEdge2", choices = node_choices, selected = isolate(input$toEdge2))
+      updateSelectizeInput(session, "fromEdge2", 
+                           choices = c("Choose edge parent" = "", node_choices), 
+                           selected = isolate(input$fromEdge2))
+      updateSelectizeInput(session, "toEdge2", 
+                           choices = c("Choose edge child" = "", node_choices), 
+                           selected = isolate(input$toEdge2))
+    } else if (nrow(node_frame(rv$nodes))) {
+      updateSelectizeInput(session, "fromEdge2", 
+                           choices = c("Choose edge parent" = "", node_choices))
+      updateSelectizeInput(session, "toEdge2", 
+                           choices = c("Choose edge child" = "", node_choices))
     } else {
       node_choices <- c("Add a node to the plot area" = "")
       updateSelectizeInput(session, "fromEdge2", choices = node_choices)
       updateSelectizeInput(session, "toEdge2", choices = node_choices)
     }
   })
-
-  edge_key <- function(x, y) paste(x, y, sep = "_")
   
-  # add/remove edges to DAG
-  observeEvent(input$edgeButton1, {
-    if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
-      rv$g <- rv$g %>%
-        add_edges(c(input$fromEdge2, input$toEdge2)) %>%
-        set_edge_attr("color", value = "black")
-      
-      
-      rv$edges[[edge_key(input$fromEdge2, input$toEdge2)]] <- list(
-        from = input$fromEdge2, to = input$toEdge2
+  observeEvent(input$edge_btn, {
+    if (input$fromEdge2 == "") {
+      warnNotification('Please choose a "Parent" node')
+      return()
+    } else if (input$toEdge2 == "") {
+      warnNotification('Please choose a "Child" node')
+      return()
+    }
+    
+    this_edge_key <- edge_key(input$fromEdge2, input$toEdge2)
+    if (this_edge_key %in% names(rv$edges)) {
+      # Remove edge
+      rv$edges <- rv$edges[setdiff(names(rv$edges), this_edge_key)]
+    } else {
+      # Add edge
+      rv$edges[[this_edge_key]] <- list(
+        from  = input$fromEdge2, 
+        to    = input$toEdge2,
+        color = "black",
+        angle = 0.0,
+        lineT = "thin",
+        lty   = "solid"
       )
     }
+    debug_input(rv$edges, "rv$edges")
   })
-
-  observeEvent(input$edgeButton2, {
-    if (input$fromEdge2 %in% V(rv$g)$name & input$toEdge2 %in% V(rv$g)$name) {
-      rv$g <- rv$g %>%
-        delete_edges(paste0(input$fromEdge2, "|", input$toEdge2))
-      
-      rv$edges <- rv$edges[setdiff(names(rv$edges), edge_key(input$fromEdge2, input$toEdge2))]
+  
+  output$ui_edge_btn <- renderUI({
+    if(is.null(input$fromEdge2) || is.null(input$toEdge2)) return()
+    this_edge_key <- edge_key(input$fromEdge2, input$toEdge2)
+    if (input$fromEdge2 == "" || input$toEdge2 == "") {
+      # Disabled button
+      actionButton("edge_btn", "", icon = icon("plus"), class = "disabled")
+    } else if (this_edge_key %in% names(rv$edges)) {
+      # Remove edge button
+      actionButton("edge_btn", "", icon = icon("minus"), class = "btn-danger")
+    } else {
+      # Add edge button
+      actionButton("edge_btn", "", icon = icon("plus"), class = "btn-success")
     }
   })
-
+  
   # ---- DAG Diagnostics ----
   output$adjustSets <- renderPrint({
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
@@ -748,19 +811,19 @@ server <- function(input, output, session) {
   
   tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
   
-  edge_frame <- reactive({
-    req(ends(rv$g, E(rv$g)))
-    as_data_frame(ends(rv$g, E(rv$g))) %>% 
-      mutate(
-        name   = paste0(V1, "->", V2),
-        angle  = vapply(paste0("angle", name), function(n) input[[n]] %||%       0, double(1)),
-        color  = vapply(paste0("color", name), function(n) input[[n]] %||% "black", character(1)),
-        thick  = vapply(paste0("lineT", name), function(n) input[[n]] %||%  "thin", character(1)),
-        type   = vapply(paste0("lty", name),   function(n) input[[n]] %||% "solid", character(1)),
-        parent = NA,
-        child  = NA
-      )
-  })
+  # edge_frame <- reactive({
+  #   req(ends(rv$g, E(rv$g)))
+  #   as_data_frame(ends(rv$g, E(rv$g))) %>% 
+  #     mutate(
+  #       name   = paste0(V1, "->", V2),
+  #       angle  = vapply(paste0("angle", name), function(n) input[[n]] %||%       0, double(1)),
+  #       color  = vapply(paste0("color", name), function(n) input[[n]] %||% "black", character(1)),
+  #       thick  = vapply(paste0("lineT", name), function(n) input[[n]] %||%  "thin", character(1)),
+  #       type   = vapply(paste0("lty", name),   function(n) input[[n]] %||% "solid", character(1)),
+  #       parent = NA,
+  #       child  = NA
+  #     )
+  # })
 
   # Re-render TeX preview
   observe({
