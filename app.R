@@ -108,9 +108,9 @@ ui <- dashboardPage(
           ),
           actionButton("edgeButton1", "Add edge!"),
           actionButton("edgeButton2", "Remove edge!"),
-          uiOutput("adjustNodeCreate"),
-          uiOutput("exposureNodeCreate"),
-          uiOutput("outcomeNodeCreate")
+          checkboxGroupInput("adjustNode", "Select nodes to adjust", inline = TRUE),
+          radioButtons("exposureNode", "Exposure", choices = c("None" = ""), inline = TRUE),
+          radioButtons("outcomeNode", "Outcome", choices = c("None" = ""), inline = TRUE)
         ),
         # ---- Tab: Edit Aesthetics ----
         tabPanel(
@@ -458,64 +458,6 @@ server <- function(input, output, session) {
     
     debug_input(rv$nodes, "rv$nodes")
   })
-  
-  # adding/removing points/nodes on clickPad
-  observeEvent(input$click1, {
-    # if (input$nodeLabel %in% rv$pts$name) {
-    #   showNotification(
-    #     "Unpredictable Behavior: duplicate names",
-    #     duration = 5,
-    #     closeButton = TRUE, type = "warning"
-    #   )
-    # }
-    
-    if (input$clickType == FALSE & input$nodeLabel != "") {
-      # Add points
-      rv$pts$x <- c(rv$pts$x, round(input$click1$x))
-      rv$pts$y <- c(rv$pts$y, round(input$click1$y))
-      rv$pts$name <- c(rv$pts$name, input$nodeLabel)
-      rv$pts2$name <- ifelse(
-        round(input$click1$x) == rv$pts2$x & round(input$click1$y) == rv$pts2$y,
-        input$nodeLabel, 
-        rv$pts2$name
-      )
-      
-      # Add Nodes to DAG
-      rv$g <- rv$g %>% 
-        add_vertices(
-          1,
-          name = input$nodeLabel,
-          x = round(input$click1$x),
-          y = round(input$click1$y),
-          color = "white",
-          shape = "none"
-        )
-      updateTextInput(session, "nodeLabel", value = "")
-    } else if (input$clickType == TRUE) {
-      # Remove Point
-      rmPoint <- intersect(grep(round(input$click1$x), rv$pts$x), grep(round(input$click1$y), rv$pts$y))
-      if (length(rmPoint) > 0) {
-        rv$pts$x[[rmPoint]] <- NA
-        rv$pts$y[[rmPoint]] <- NA
-        rv$pts$name[[rmPoint]] <- NA
-        rv$pts2$name <- ifelse(
-          round(input$click1$x) == rv$pts2$x & round(input$click1$y) == rv$pts2$y,
-          NA, 
-          rv$pts2$name
-        )
-      }
-      
-      # Remove Node
-      rmNode <- intersect(grep(round(input$click1$x), V(rv$g)$x), grep(round(input$click1$y), V(rv$g)$y))
-      if (length(rmNode) > 0) {
-        rmNode <- V(rv$g)$name[[rmNode]]
-        rv$g <- rv$g %>% delete_vertices(rmNode)
-        
-        # Remove dependent edges
-        rv$edges <- rv$edges[!grepl(rmNode, rv$edges)]
-      }
-    }
-  })
 
   # clickPad display
   output$clickPad <- renderPlot({
@@ -537,25 +479,32 @@ server <- function(input, output, session) {
   })
 
   # ---- Node - Options ----
-  output$adjustNodeCreate <- renderUI({
-    checkboxGroupInput("adjustNode", "Select nodes to adjust",
-      choices = node_names(rv$nodes),
-      inline = TRUE
+  update_node_options <- function(nodes, inputId, updateFn, none_choice = TRUE, ...) {
+    available_choices <- c("None" = if (none_choice) "", node_names(nodes))
+    s_choice <- intersect(
+      c(isolate(input[[inputId]]), if (none_choice) ""), 
+      available_choices
     )
+    updateFn(session, 
+             inputId, 
+             choices = available_choices, 
+             selected = s_choice,
+             ...
+    )
+  }
+  observe({
+    update_node_options(rv$nodes, "adjustNode", none_choice = FALSE,
+                        updateCheckboxGroupInput, inline = TRUE)
+  })
+  
+  observe({
+    update_node_options(rv$nodes, "exposureNode", 
+                        updateRadioButtons, inline = TRUE)
   })
 
-  output$exposureNodeCreate <- renderUI({
-    checkboxGroupInput("exposureNode", "Exposure",
-      choices = node_names(rv$nodes),
-      inline = TRUE
-    )
-  })
-
-  output$outcomeNodeCreate <- renderUI({
-    checkboxGroupInput("outcomeNode", "Outcome",
-      choices = node_names(rv$nodes),
-      inline = TRUE
-    )
+  observe({
+    update_node_options(rv$nodes, "outcomeNode", 
+                        updateRadioButtons, inline = TRUE)
   })
 
   output$adjustText <- renderText({
