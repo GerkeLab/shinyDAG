@@ -63,6 +63,7 @@ ui <- dashboardPage(
       box(
         title = "shinyDAG",
         column(12, align = "center", uiOutput("tikzOut")),
+        # column(12, align = "center", imageOutput("tikzOut")),
         selectInput("downloadType", "Type of download",
           choices = list("PDF" = 4, "PNG" = 3, "LaTeX TikZ" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
         ),
@@ -839,18 +840,39 @@ server <- function(input, output, session) {
   })
   
   # ---- Render DAG ----
+  # output$tikzOut <- renderUI({
+  #   tikzUpdateOutput()
+  #   if (!file.exists(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"))) return(NULL)
+  # 
+  #   serve_file_path <- file.path(sub("www/", "", SESSION_TEMPDIR, fixed = TRUE), "DAGimageDoc.pdf")
+  # 
+  #   tags$iframe(
+  #     style = "height:600px; width:100%",
+  #     src = serve_file_path,
+  #     scrolling = "auto",
+  #     zoom = if (length(V(rv$g)$name) < 1) 300,
+  #     seamless = "seamless"
+  #   )
+  # })
+  
   output$tikzOut <- renderUI({
+    req(length(rv$nodes))
     tikzUpdateOutput()
-    if (!file.exists(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"))) return(NULL)
+    image_path <- file.path(SESSION_TEMPDIR, "DAGimage.png")
+    if (!file.exists(image_path)) {
+      debug_line("Image does not exist: ", image_path)
+      return()
+    }
     
-    serve_file_path <- file.path(sub("www/", "", SESSION_TEMPDIR, fixed = TRUE), "DAGimageDoc.pdf")
+    image_tmp <- tempfile("dag_image_", SESSION_TEMPDIR, ".png")
+    file.copy(image_path, image_tmp)
+    debug_line("Serving image: ", image_tmp)
     
-    tags$iframe(
-      style = "height:600px; width:100%", 
-      src = serve_file_path,
-      scrolling = "auto",
-      zoom = if (length(V(rv$g)$name) < 1) 300,
-      seamless = "seamless"
+    tags$img(
+      src = sub("www/", "", image_tmp, fixed = TRUE),
+      contentType = "image/png",
+      style = "width: 100%; max-height: 600px; -o-object-fit: contain;",
+      alt = "DAG"
     )
   })
   
@@ -869,72 +891,88 @@ server <- function(input, output, session) {
   #       child  = NA
   #     )
   # })
+  
+  dag_node_lines <- function(nodeFrame) {
+    # Node frame is all points (1, 7) to (7, 1) with columns x, y, name
+    nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+                             nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+                             nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
+                             nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y), ]
+    nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
+    nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
+    nodeLines <- vector("character", 0)
+    for (i in unique(nodeFrame$y)) {
+      createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\")
+      nodeLines <- c(nodeLines, createLines)
+    }
+    nodeLines <- rev(nodeLines)
+    
+    paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
+  }
 
   # Re-render TeX preview
   observe({
-    if (length(V(rv$g)$name) >= 1) {
+    req(rv$nodes)
+    nodeFrame <- node_frame(rv$nodes)
+    
+    if (nrow(nodeFrame)) {
       styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
       startZ <- "\\begin{tikzpicture}[>=latex]"
       endZ <- "\\end{tikzpicture}"
       pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
 
-      nodeFrame <- rv$pts2
-      nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
-        nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y), ]
-      nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
-      nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
-      nodeLines <- vector("character", 0)
-      for (i in unique(nodeFrame$y)) {
-        createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\")
-        nodeLines <- c(nodeLines, createLines)
-      }
-      nodeLines <- rev(nodeLines)
-      nodeLines2 <- nodeLines
-
-      nodeLines <- paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
+      nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>% 
+        left_join(
+          nodeFrame %>% select(x, y, name), 
+          by = c("x", "y")
+        ) %>% 
+        dag_node_lines()
 
       edgeLines <- vector("character", 0)
 
-      if (length(E(rv$g)) >= 1) {
+      if (length(rv$edges)) {
         # edge_frame() is a reactive that gathers values from aesthetics UI
         # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
-        edgeFrame <- debounce(edge_frame, 1000)()
+        # edgeFrame <- debounce(edge_frame, 1000)()
+        edgePts <- edge_points(rv$edges, rv$nodes)
 
         nodeFrame$revY <- rev(nodeFrame$y)
 
-        for (i in seq_len(nrow(edgeFrame))) {
-          edgeFrame$parent[i] <- paste0(
-            "(m-", (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$revY - min(nodeFrame$revY) + 1), "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$x - min(nodeFrame$x) + 1), ")"
+        for (i in seq_len(nrow(edgePts))) {
+          anchor_pts <- nodeFrame %>% 
+            summarize_all(funs(min, max))
+          
+          parent <- paste0(
+            "(m-", (anchor_pts$y_max - edgePts$from.y + 1), "-",
+            (edgePts$from.x - anchor_pts$x_min + 1), ")"
           )
-          edgeFrame$child[i] <- paste0(
-            "(m-", (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$revY - min(nodeFrame$revY) + 1), "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$x - min(nodeFrame$x) + 1), ")"
+          
+          child <- paste0(
+            "(m-", (anchor_pts$y_max - edgePts$to.y + 1), "-",
+            (edgePts$to.x - anchor_pts$x_min + 1), ")"
           )
-          createEdge <- paste0(
-            edgeFrame$parent[i], " edge [>=", input$arrowShape, ", bend left = ", edgeFrame$angle[i],
-            ", color = ", edgeFrame$color[i], ",", edgeFrame$type[i], ",", edgeFrame$thick[i],
-            "] node[auto] {$~$} ", edgeFrame$child[i], " "
+          
+          edgeLines[i] <- paste0(
+            parent, " edge [>=", input$arrowShape, ", bend left = ", edgePts$angle[i],
+            ", color = ", edgePts$color[i], ",", edgePts$lineT[i], ",", edgePts$lty[i],
+            "] node[auto] {$~$} ", child, " "
           )
-          edgeLines <- c(edgeLines, createEdge)
+          debug_line("Edge ", edgePts$hash[i], ": ", edgeLines)
         }
       }
 
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
 
-      allLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
-
-      tikzTemp <- paste(allLines, collapse = "")
+      tikzLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
+      tikzLines <- paste(tikzLines, collapse = "")
 
       useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
 
       pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
 
       texPreview(
-        obj = tikzTemp,
+        obj = tikzLines,
         stem = "DAGimage",
         fileDir = SESSION_TEMPDIR,
         imgFormat = "png",
