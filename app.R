@@ -608,6 +608,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # Add or Remove Edges
   observeEvent(input$edge_btn, {
     if (input$from_edge == "") {
       warnNotification('Please choose a "Parent" node')
@@ -652,7 +653,7 @@ server <- function(input, output, session) {
   
   # ---- DAG Diagnostics ----
   g_dagitty <- reactive({
-    req(length(rv$edges))
+    req(length(rv$edges) > 0)
     edges <- edge_frame(rv$edges, rv$nodes)
     dagitty_paths <- edges %>% 
       glue::glue_data("{from}->{to};") %>% 
@@ -770,10 +771,11 @@ server <- function(input, output, session) {
   
   # ui_edge_controls() is designed to be lapply-ed over the edge list, and
   # will create shinyInputs for each node pair.
-  ui_edge_controls <- function(x, inputFn, prefix_input, prefix_label, ...) {
-    from_to <- paste0(x$from, "->", x$to)
-    input_name <- paste0(prefix_input, from_to)
-    input_label <- paste0(prefix_label, " ", from_to)
+  ui_edge_controls <- function(edge, edge_hash, inputFn, prefix_input, prefix_label, ...) {
+    node_from <- invertNames(node_names(rv$nodes))[edge$from]
+    node_to   <- invertNames(node_names(rv$nodes))[edge$to]
+    input_name  <- paste(prefix_input, edge_hash, sep = "_")
+    input_label <- paste0(prefix_label, " ", node_from, "&nbsp;&#8594; ", node_to)
     
     if (input_name %in% names(input)) {
       # Make sure current value doesn't change
@@ -781,17 +783,17 @@ server <- function(input, output, session) {
       current_value <- intersect(names(dots), c("selected", "value"))
       dots[current_value] <- isolate(input[[input_name]])
       dots$inputId <- input_name
-      dots$label <- input_label
+      dots$label <- HTML(input_label)
       do.call(inputFn, dots)
     } else {
       # Create new input
-      inputFn(input_name, input_label, ...)
+      inputFn(input_name, HTML(input_label), ...)
     }
   }
   
   output$curveAngle <- renderUI({
-    req(rv$edges)
-    lapply(
+    req(length(rv$edges) > 0)
+    purrr::imap(
       rv$edges,
       ui_edge_controls,
       inputFn = sliderInput,
@@ -800,10 +802,10 @@ server <- function(input, output, session) {
       min = -180, max = 180, value = 0, step = 5
     )
   })
-
+  
   output$curveColor <- renderUI({
-    req(rv$edges)
-    lapply(
+    req(length(rv$edges) > 0)
+    purrr::imap(
       rv$edges,
       ui_edge_controls,
       inputFn = textInput,
@@ -812,10 +814,10 @@ server <- function(input, output, session) {
       value = "black"
     )
   })
-
+  
   output$curveLty <- renderUI({
-    req(rv$edges)
-    lapply(
+    req(length(rv$edges) > 0)
+    purrr::imap(
       rv$edges,
       ui_edge_controls,
       inputFn = selectInput,
@@ -825,10 +827,10 @@ server <- function(input, output, session) {
       selected = "solid"
     )
   })
-
+  
   output$curveThick <- renderUI({
-    req(rv$edges)
-    lapply(
+    req(length(rv$edges) > 0)
+    purrr::imap(
       rv$edges,
       ui_edge_controls,
       inputFn = selectInput,
@@ -838,6 +840,28 @@ server <- function(input, output, session) {
       selected = "thin"
     )
   })
+  
+  # Watch edge UI inputs and update rv$edges when inputs change
+  observe({
+    req(length(rv$edges) > 0, grepl("^angle_", names(input)))
+    edge_ui <- data_frame(
+      inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
+    ) %>% 
+      # get current value of input
+      mutate(value = lapply(inputId, function(x) input[[x]])) %>% 
+      tidyr::separate(inputId, into = c("var", "hash"), sep = "_") %>% 
+      tidyr::spread(var, value) %>% 
+      tidyr::unnest() %>% 
+      split(.$hash)
+    for (edge in edge_ui) {
+      if (!edge$hash %in% names(rv$edges)) next
+      this_edge <- edge[setdiff(names(edge), "hash")]
+      for (prop in names(this_edge)) {
+        rv$edges[[edge$hash]][[prop]] <- this_edge[[prop]]
+      }
+    }
+    debug_input(rv$edges, "rv$edges after aes update")
+  }, priority = -50)
   
   # ---- Render DAG ----
   # output$tikzOut <- renderUI({
@@ -879,7 +903,7 @@ server <- function(input, output, session) {
   tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
   
   edge_points_rv <- reactive({
-    req(length(rv$edges))
+    req(length(rv$edges) > 0)
     edge_points(rv$edges, rv$nodes)
   })
   
@@ -970,7 +994,7 @@ server <- function(input, output, session) {
       )
     }
     tikzUpdateOutput(!isolate(tikzUpdateOutput()))
-  })
+  }, priority = -100)
   
   # ---- Download Files ----
   # Merge tikz TeX source into main TeX file
