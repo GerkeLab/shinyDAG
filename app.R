@@ -878,19 +878,10 @@ server <- function(input, output, session) {
   
   tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
   
-  # edge_frame <- reactive({
-  #   req(ends(rv$g, E(rv$g)))
-  #   as_data_frame(ends(rv$g, E(rv$g))) %>% 
-  #     mutate(
-  #       name   = paste0(V1, "->", V2),
-  #       angle  = vapply(paste0("angle", name), function(n) input[[n]] %||%       0, double(1)),
-  #       color  = vapply(paste0("color", name), function(n) input[[n]] %||% "black", character(1)),
-  #       thick  = vapply(paste0("lineT", name), function(n) input[[n]] %||%  "thin", character(1)),
-  #       type   = vapply(paste0("lty", name),   function(n) input[[n]] %||% "solid", character(1)),
-  #       parent = NA,
-  #       child  = NA
-  #     )
-  # })
+  edge_points_rv <- reactive({
+    req(length(rv$edges))
+    edge_points(rv$edges, rv$nodes)
+  })
   
   dag_node_lines <- function(nodeFrame) {
     # Node frame is all points (1, 7) to (7, 1) with columns x, y, name
@@ -929,39 +920,33 @@ server <- function(input, output, session) {
         ) %>% 
         dag_node_lines()
 
-      edgeLines <- vector("character", 0)
+      edgeLines <- character()
 
       if (length(rv$edges)) {
-        # edge_frame() is a reactive that gathers values from aesthetics UI
+        # edge_points_rv() is a reactive that gathers values from aesthetics UI
         # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
-        # edgeFrame <- debounce(edge_frame, 1000)()
-        edgePts <- edge_points(rv$edges, rv$nodes)
-
-        nodeFrame$revY <- rev(nodeFrame$y)
-
-        for (i in seq_len(nrow(edgePts))) {
-          anchor_pts <- nodeFrame %>% 
-            summarize_all(funs(min, max))
-          
-          parent <- paste0(
-            "(m-", (anchor_pts$y_max - edgePts$from.y + 1), "-",
-            (edgePts$from.x - anchor_pts$x_min + 1), ")"
-          )
-          
-          child <- paste0(
-            "(m-", (anchor_pts$y_max - edgePts$to.y + 1), "-",
-            (edgePts$to.x - anchor_pts$x_min + 1), ")"
-          )
-          
-          edgeLines[i] <- paste0(
-            parent, " edge [>=", input$arrowShape, ", bend left = ", edgePts$angle[i],
-            ", color = ", edgePts$color[i], ",", edgePts$lineT[i], ",", edgePts$lty[i],
-            "] node[auto] {$~$} ", child, " "
-          )
-          debug_line("Edge ", edgePts$hash[i], ": ", edgeLines)
+        edgePts <- debounce(edge_points_rv, 1000)()
+        
+        tikz_point <- function(x, y, x_min, y_max) {
+          glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
         }
+        
+        edgePts <- edgePts %>% 
+          mutate(
+            x_min  = min(from.x, to.x),
+            y_max  = max(from.y, to.y),
+            parent = tikz_point(from.x, from.y, x_min, y_max),
+            child  = tikz_point(to.x, to.y, x_min, y_max),
+            edgeLine = glue::glue(
+              "{parent} edge [>={input$arrowShape}, bend left = {edgePts$angle}, ",
+              "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"
+            )
+          )
+        
+        debug_input(select(edgePts, hash, matches("^(from|to)"), parent, child, edgeLine), "edgeLines")
+        edgeLines <- edgePts$edgeLine
       }
-
+      
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
 
       tikzLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
