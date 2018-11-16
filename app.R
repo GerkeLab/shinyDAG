@@ -30,7 +30,7 @@ debug_input <- function(x, x_name = NULL) {
   } else if (length(x) == 1 && !is.list(x)) {
     cat("\n", if (!is.null(x_name)) paste0(x_name, ":"), if (length(names(x))) names(x), "-", x)
   } else {
-    x <- tibble::enframe(x)
+    if (!inherits(x, "data.frame")) x <- tibble::enframe(x)
     cat("", if (!is.null(x_name)) paste0(x_name, ":"), knitr::kable(x), sep = "\n")
   }
 }
