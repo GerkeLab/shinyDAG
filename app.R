@@ -64,11 +64,22 @@ ui <- dashboardPage(
         title = "shinyDAG",
         column(12, align = "center", uiOutput("tikzOut")),
         # column(12, align = "center", imageOutput("tikzOut")),
-        selectInput("downloadType", "Type of download",
-          choices = list("PDF" = 4, "PNG" = 3, "LaTeX TikZ" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
+        tags$style(
+          type = "text/css",
+          "#showPreviewContainer { padding-top: 32px; }",
+          "#downloadButton { margin-top: 25px; }"
         ),
-        downloadButton("downloadButton"),
-        br(), br(),
+        fluidRow(
+          column(4, tags$div(id = "showPreviewContainer", 
+                            prettySwitch("showPreview", "Preview DAG", status = "primary", fill = TRUE))),
+          column(4, 
+            selectInput("downloadType", "Type of download",
+                        choices = list("PDF" = 4, "PNG" = 3, "LaTeX TikZ" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
+            )
+          ),
+          column(4, downloadButton("downloadButton"))
+        ),
+        # br(), br(),
         prettySwitch(
           inputId = "showFlow",
           label = "Examine DAG elements",
@@ -106,6 +117,7 @@ ui <- dashboardPage(
             ),
             column(2, uiOutput("node_ui_remove"))
           ),
+          uiOutput("nodeListButtonsLabel"),
           uiOutput("nodeListButtons"),
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad", click = "pad_click"),
@@ -320,6 +332,16 @@ server <- function(input, output, session) {
     }
   })
   
+  output$nodeListButtonsLabel <- renderUI({
+    if (!length(rv$nodes)) {
+      NULL
+    } else if (is.null(node_list_btn_sel())) {
+      tags$p(tags$strong("Select a Node to Edit or Place"))
+    } else {
+      tags$p(tags$strong("Edit or Place Selected Node"))
+    }
+  })
+  
   output$nodeListButtons <- renderUI({
     req(rv$nodes)
     if (!length(rv$nodes)) return()
@@ -334,7 +356,6 @@ server <- function(input, output, session) {
       )
     }
     tagList(
-      tags$p(tags$strong("Select a Node")),
       node_list_buttons
     )
   })
@@ -437,8 +458,6 @@ server <- function(input, output, session) {
   # ---- Click Pad ----
   # Add or move point on clickPad
   observeEvent(input$pad_click, {
-    cli::cat_line("Click!")
-    
     if (!length(rv$nodes)) {
       warnNotification("Please add a node")
       return()
@@ -880,7 +899,7 @@ server <- function(input, output, session) {
   # })
   
   output$tikzOut <- renderUI({
-    req(length(rv$nodes))
+    req(length(rv$nodes), input$showPreview)
     tikzUpdateOutput()
     image_path <- file.path(SESSION_TEMPDIR, "DAGimage.png")
     if (!file.exists(image_path)) {
@@ -927,7 +946,7 @@ server <- function(input, output, session) {
 
   # Re-render TeX preview
   observe({
-    req(rv$nodes)
+    req(rv$nodes, input$showPreview)
     nodeFrame <- node_frame(rv$nodes)
     
     if (nrow(nodeFrame)) {
