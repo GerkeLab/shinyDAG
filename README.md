@@ -1,6 +1,6 @@
 # shinyDAG
 
-shinyDAG is a web application that uses R and LaTeX to create publication-quality images of directed acyclic graphs (DAGs). Additionally, the application leverages complementary R packages to evaluate correlational structures and identify appropriate adjustment sets for estimating causal effects<sup>1-4</sup>. The web-based application can be accessed at [https://gerkelab.shinyapps.io/shinyDAG/](https://gerkelab.shinyapps.io/shinyDAG/).
+shinyDAG is a web application that uses R and LaTeX to create publication-quality images of directed acyclic graphs (DAGs). Additionally, the application leverages complementary R packages to evaluate correlational structures and identify appropriate adjustment sets for estimating causal effects<sup>1-4</sup>. The web-based application can be accessed at [https://apps.gerkelab.com/shinyDAG/](https://apps.gerkelab.com/shinyDAG/).
 
 ## Key operations
 
