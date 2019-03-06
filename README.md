@@ -38,7 +38,7 @@ shinyDAG should work in most modern web browsers, however, we have observed opti
 
 ## Citing shinyDAG
 
-shinyDAG was developed by Jordan Creed and Travis Gerke.
+shinyDAG was developed by Jordan Creed, Garrick Aden-Buie and Travis Gerke.
 
 Concept DOI: 10.5281/zenodo.1288712
 
