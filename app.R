@@ -10,6 +10,7 @@ library(shinyBS)
 library(dplyr)
 library(ggdag)
 library(shinyWidgets)
+library(shinyjs)
 # Additional libraries: tidyr, digest, rlang
 
 tex_opts$set(list(
@@ -58,6 +59,7 @@ ui <- dashboardPage(
   dashboardHeader(disable = TRUE),
   dashboardSidebar(disable = TRUE),
   dashboardBody(
+    shinyjs::useShinyjs(),
     fluidRow(
       # ---- Box: DAG ----
       box(
@@ -106,19 +108,19 @@ ui <- dashboardPage(
             type = "text/css",
             ".shiny-output-error { visibility: hidden; }",
             ".shiny-output-error:before { visibility: hidden; }",
-            "#node_delete { margin-top: 25px; color: #FFF }",
-            "#edge_btn { margin-top: 25px; color: #FFF }",
+            "#node_delete { margin-top: 20px; color: #FFF }",
+            "#edge_btn { margin-top: 20px; color: #FFF }",
             "@media (min-width: 768px) { #node_delete { margin-left: -25px; } }"
-          ),
-          fluidRow(
-            column(10, 
-              searchInput("nodeLabel", label = "Add a Node", value = "", placeholder = NULL,
-                          btnSearch = icon("check"), btnReset = icon("remove"), width = "100%")
-            ),
-            column(2, uiOutput("node_ui_remove"))
           ),
           uiOutput("nodeListButtonsLabel"),
           uiOutput("nodeListButtons"),
+          fluidRow(
+            column(10, 
+              searchInput("nodeLabel", label = "", value = "", placeholder = NULL,
+                          btnSearch = icon("check"), btnReset = icon("backspace"), width = "100%")
+            ),
+            column(2, uiOutput("node_ui_remove"))
+          ),
           # checkboxInput("clickType", "Click to remove a node", value = FALSE),
           plotOutput("clickPad", click = "pad_click"),
           fluidRow(
@@ -310,7 +312,7 @@ server <- function(input, output, session) {
         # Update node list
         rv$nodes <- node_new(rv$nodes, new_node_hash, input$nodeLabel)
         # Update node btn state
-        new_node_state <- setNames(FALSE, node_btn_id(new_node_hash))
+        new_node_state <- setNames(TRUE, node_btn_id(new_node_hash))
         node_list_btn_last_state <<- c(node_list_btn_last_state, new_node_state)
         node_last_change_was_app(TRUE)
         # Clear search input
@@ -334,9 +336,9 @@ server <- function(input, output, session) {
   
   output$nodeListButtonsLabel <- renderUI({
     if (!length(rv$nodes)) {
-      NULL
+      tags$p(tags$strong("Add a Node"))
     } else if (is.null(node_list_btn_sel())) {
-      tags$p(tags$strong("Select a Node to Edit or Place"))
+      tags$p(tags$strong("Add Node or Select Existing to Edit or Place"))
     } else {
       tags$p(tags$strong("Edit or Place Selected Node"))
     }
@@ -356,8 +358,26 @@ server <- function(input, output, session) {
       )
     }
     tagList(
-      node_list_buttons
+      tags$div(
+        class = "btn-group",
+        node_list_buttons,
+        bsButton("nodeLabelAddNew", "", icon = icon("plus"), style = "primary")
+      )
     )
+  })
+  
+  # Handle new node button triggered
+  observeEvent(input$nodeLabelAddNew, {
+    node_list_btn_now <- node_list_btn_state()
+    if (length(node_list_btn_now) && any(node_list_btn_now)) {
+      updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
+    }
+  })
+  
+  # Disable new node button if in "add node" state
+  observe({
+    node_list_btn_now <- node_list_btn_sel()
+    shinyjs::toggleState("nodeLabelAddNew", condition = !is.null(node_list_btn_now))
   })
   
   # Current state of the node buttons, zero-length if no nodes yet
@@ -415,16 +435,32 @@ server <- function(input, output, session) {
     req(node_list_btn_sel())
     s_node_list_btn_id <- node_list_btn_sel() %>% node_btn_get_hash()
     s_node_name <- isolate(rv$nodes[[s_node_list_btn_id]]$name)
-    updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "Edit Node")
+    updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "")
   })
   
   # Selecting existing node label enables node delete button
   output$node_ui_remove <- renderUI({
     req(node_list_btn_sel())
     if (node_btn_sel_has_point()) {
-      actionButton("node_delete", "", icon = icon("eraser"), class = "btn-warning", alt = "Clear Node from DAG")
+      actionButton(
+        "node_delete", "", 
+        icon = icon("eraser"), 
+        class = "btn-warning", 
+        alt = "Remove Node from DAG",
+        `data-toggle` = "tooltip", 
+        `data-placement` = "bottom",  
+        title = "Remove Node from DAG"
+      )
     } else {
-      actionButton("node_delete", "", icon = icon("trash"), class = "btn-danger", alt = "Delete Node")
+      actionButton(
+        "node_delete", "", 
+        icon = icon("trash"), 
+        class = "btn-danger", 
+        alt = "Delete Node",
+        `data-toggle` = "tooltip", 
+        `data-placement` = "bottom",  
+        title = "Delete Node"
+      )
     }
   })
   
@@ -432,7 +468,7 @@ server <- function(input, output, session) {
   node_btn_sel_has_point <- reactive({
     req(node_list_btn_sel())
     node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    !is.na(rv$nodes[[node_btn_hash]]$x)
+    !is.null(rv$nodes[[node_btn_hash]]) && !is.na(rv$nodes[[node_btn_hash]]$x)
   })
   
   # Delete node
@@ -444,6 +480,7 @@ server <- function(input, output, session) {
       rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
       updateButton(session, node_list_btn_sel(), value = FALSE)
     }
+    shinyjs::runjs("$('#node_delete').tooltip('hide')")
     debug_input(rv$nodes, "rv$nodes")
     debug_input(node_list_btn_state(), "node_list_btn_state()")
   })
@@ -452,7 +489,7 @@ server <- function(input, output, session) {
   observe({
     req(!any(node_list_btn_state()))
     # Clear node input
-    updateSearchInput(session, "nodeLabel", value = "", label = "Add a Node")
+    updateSearchInput(session, "nodeLabel", value = "", label = "")
   })
 
   # ---- Click Pad ----

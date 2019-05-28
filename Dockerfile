@@ -48,6 +48,9 @@ RUN install2.r --error tinytex \
   && echo "PATH=${PATH}" >> /usr/local/lib/R/etc/Renviron \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
+RUN install2.r --error --deps TRUE shinyjs \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
+
 ARG SHINY_APP_IDLE_TIMEOUT=600
 RUN sed -i "s/directory_index on;/app_idle_timeout ${SHINY_APP_IDLE_TIMEOUT};/g" /etc/shiny-server/shiny-server.conf
 COPY . /srv/shiny-server/shinyDAG
