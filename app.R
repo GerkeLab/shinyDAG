@@ -867,6 +867,7 @@ server <- function(input, output, session) {
     edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
     ) %>% 
+      filter(!grepl("-selectized$", inputId)) %>% 
       # get current value of input
       mutate(value = lapply(inputId, function(x) input[[x]])) %>% 
       tidyr::separate(inputId, into = c("var", "hash"), sep = "_") %>% 
