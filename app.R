@@ -198,7 +198,7 @@ server <- function(input, output, session) {
     edges = list(),
     nodes = list(),
     pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
-    pts2 = data_frame(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
+    pts2 = tibble(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
   
   node_list_btn_last_state <- c()
@@ -265,7 +265,7 @@ server <- function(input, output, session) {
   }
   
   node_frame <- function(nodes, full = FALSE) {
-    if (!length(nodes)) return(data_frame())
+    if (!length(nodes)) return(tibble())
     x <- bind_rows(nodes) %>% 
       mutate(hash = names(nodes)) %>% 
       select(hash, everything())
@@ -863,7 +863,7 @@ server <- function(input, output, session) {
   # Watch edge UI inputs and update rv$edges when inputs change
   observe({
     req(length(rv$edges) > 0, grepl("^angle_", names(input)))
-    edge_ui <- data_frame(
+    edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
     ) %>% 
       # get current value of input
