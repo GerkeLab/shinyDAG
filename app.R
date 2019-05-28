@@ -101,9 +101,11 @@ ui <- dashboardPage(
       # ---- Box: Controls ----
       tabBox(
         title = div(img(src = "GerkeLab.png", width = 40, height = 40)),
+        id = "tab_control",
         # ---- Tab: Build ----
         tabPanel(
           "Build",
+          value = "build",
           tags$style(
             type = "text/css",
             ".shiny-output-error { visibility: hidden; }",
@@ -135,6 +137,7 @@ ui <- dashboardPage(
         # ---- Tab: Edit Aesthetics ----
         tabPanel(
           "Edit aesthetics",
+          value = "edit_edge_aesthetics",
           selectInput("arrowShape", "Select arrow head", choices = c(
             "stealth", "stealth'", "diamond",
             "triangle 90", "hooks", "triangle 45",
@@ -151,6 +154,7 @@ ui <- dashboardPage(
         # ---- Tab: Edit LaTeX ----
         tabPanel(
           "Edit LaTeX",
+          value = "edit_latex",
           helpText("WARNING: Editing code here will only change the appearance of the DAG and not the information on paths provided."),
           uiOutput("texEdit"),
           actionButton("redoTex", "Initiate Editing!"),
@@ -166,6 +170,7 @@ ui <- dashboardPage(
         # ---- Tab: About ----
         tabPanel(
           "About shinyDAG",
+          value = "about",
           h6("Development Team: Jordan Creed, Travis Gerke, and Garrick Aden-Buie"),
           h6("For more information on our lab and other projects please check out our website at", tags$a(href = "http://gerkelab.com", "gerkelab.com")),
           h6("All code is available on GitHub at", tags$a(href = "https://github.com/GerkeLab/ShinyDAG", "GerkeLab/ShinyDag")),
@@ -812,9 +817,10 @@ server <- function(input, output, session) {
   }
   
   output$curveAngle <- renderUI({
-    req(length(rv$edges) > 0)
+    req(input$tab_control == "edit_edge_aesthetics")
+    req(length(isolate(rv$edges)) > 0)
     purrr::imap(
-      rv$edges,
+      isolate(rv$edges),
       ui_edge_controls,
       inputFn = sliderInput,
       prefix_input = "angle",
@@ -824,9 +830,10 @@ server <- function(input, output, session) {
   })
   
   output$curveColor <- renderUI({
-    req(length(rv$edges) > 0)
+    req(input$tab_control == "edit_edge_aesthetics")
+    req(length(isolate(rv$edges)) > 0)
     purrr::imap(
-      rv$edges,
+      isolate(rv$edges),
       ui_edge_controls,
       inputFn = textInput,
       prefix_input = "color",
@@ -836,9 +843,10 @@ server <- function(input, output, session) {
   })
   
   output$curveLty <- renderUI({
-    req(length(rv$edges) > 0)
+    req(input$tab_control == "edit_edge_aesthetics")
+    req(length(isolate(rv$edges)) > 0)
     purrr::imap(
-      rv$edges,
+      isolate(rv$edges),
       ui_edge_controls,
       inputFn = selectInput,
       prefix_input = "lty",
@@ -849,9 +857,10 @@ server <- function(input, output, session) {
   })
   
   output$curveThick <- renderUI({
-    req(length(rv$edges) > 0)
+    req(input$tab_control == "edit_edge_aesthetics")
+    req(length(isolate(rv$edges)) > 0)
     purrr::imap(
-      rv$edges,
+      isolate(rv$edges),
       ui_edge_controls,
       inputFn = selectInput,
       prefix_input = "lineT",
@@ -864,6 +873,7 @@ server <- function(input, output, session) {
   # Watch edge UI inputs and update rv$edges when inputs change
   observe({
     req(length(rv$edges) > 0, grepl("^angle_", names(input)))
+    rv_edges <- rv$edges
     edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
     ) %>% 
@@ -875,13 +885,13 @@ server <- function(input, output, session) {
       tidyr::unnest() %>% 
       split(.$hash)
     for (edge in edge_ui) {
-      if (!edge$hash %in% names(rv$edges)) next
+      if (!edge$hash %in% names(rv_edges)) next
       this_edge <- edge[setdiff(names(edge), "hash")]
       for (prop in names(this_edge)) {
         rv$edges[[edge$hash]][[prop]] <- this_edge[[prop]]
       }
     }
-    debug_input(rv$edges, "rv$edges after aes update")
+    debug_input(rv_edges, "rv$edges after aes update")
   }, priority = -50)
   
   # ---- Render DAG ----
@@ -970,7 +980,7 @@ server <- function(input, output, session) {
       if (length(rv$edges)) {
         # edge_points_rv() is a reactive that gathers values from aesthetics UI
         # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
-        edgePts <- debounce(edge_points_rv, 1000)()
+        edgePts <- debounce(edge_points_rv, 5000)()
         
         tikz_point <- function(x, y, x_min, y_max) {
           glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
