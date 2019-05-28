@@ -109,7 +109,7 @@ ui <- dashboardPage(
             ".shiny-output-error { visibility: hidden; }",
             ".shiny-output-error:before { visibility: hidden; }",
             "#node_delete { margin-top: 20px; color: #FFF }",
-            "#edge_btn { margin-top: 20px; color: #FFF }",
+            "#edge_btn { margin-top: 25px; color: #FFF }",
             "@media (min-width: 768px) { #node_delete { margin-left: -25px; } }"
           ),
           uiOutput("nodeListButtonsLabel"),
