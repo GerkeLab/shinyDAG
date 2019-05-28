@@ -727,42 +727,6 @@ server <- function(input, output, session) {
     gd
   }
   
-  # output$adjustSets <- renderPrint({
-  #   req(node_names(rv$nodes))
-  #   if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-  #     gd <- g_dagitty() %>% 
-  #       dagitty_apply(
-  #         rv$nodes,
-  #         exposures = input$exposureNode,
-  #         outcomes = input$outcomeNode
-  #       )
-  #     
-  #     adjustResults <- adjustmentSets(gd)
-  #     return(adjustResults)
-  #   } else {
-  #     return(print("Please indicate exposure and outcome"))
-  #   }
-  # })
-  # 
-  # output$condInd <- renderPrint({
-  #   req(node_names(rv$nodes))
-  #   gd <- g_dagitty() %>% 
-  #     dagitty_apply(
-  #       rv$nodes,
-  #       exposures = input$exposureNode,
-  #       outcomes  = input$outcomeNode,
-  #       adjusted  = input$adjustNode
-  #     )
-  # 
-  #   test <- impliedConditionalIndependencies(gd)
-  # 
-  #   return_list <- vector("character", 0)
-  #   for (i in 1:length(test)) {
-  #     return_list <- c(return_list, paste0(test[[i]]$X, " is independent of ", test[[i]]$Y, " given: ", paste0(test[[i]]$Z, collapse = " and ")))
-  #   }
-  #   return(cat(return_list, sep = "\n")) # } else{return(print(""))}
-  # })
-
   output$openPaths <- renderPrint({
     req(node_names(rv$nodes), input$exposureNode, input$outcomeNode)
     if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
