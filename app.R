@@ -90,11 +90,9 @@ ui <- dashboardPage(
         ),
         conditionalPanel(
           condition = "input.showFlow == 1",
-          # textOutput("adjustText"),
-          # verbatimTextOutput("adjustSets"),
           fluidRow(
-            column(6, "Open paths", verbatimTextOutput("openPaths")),
-            column(6, "Closed paths", verbatimTextOutput("closedPaths"))
+            column(6, "Open paths", uiOutput("openPaths")),
+            column(6, "Closed paths", uiOutput("closedPaths"))
           )
         )
       ),
@@ -108,8 +106,6 @@ ui <- dashboardPage(
           value = "build",
           tags$style(
             type = "text/css",
-            ".shiny-output-error { visibility: hidden; }",
-            ".shiny-output-error:before { visibility: hidden; }",
             "#node_delete { margin-top: 20px; color: #FFF }",
             "#edge_btn { margin-top: 25px; color: #FFF }",
             "#ui_edge_swap_btn { margin-top: 25px; }",
@@ -832,64 +828,67 @@ server <- function(input, output, session) {
     gd
   }
   
-  output$openPaths <- renderPrint({
-    req(node_names(rv$nodes), input$exposureNode, input$outcomeNode)
-    if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      nodes <- invertNames(node_names(rv$nodes))
-      gd <- g_dagitty() %>% 
-        dagitty_apply(
-          rv$nodes,
-          exposures = input$exposureNode,
-          outcomes  = input$outcomeNode,
-          adjusted  = input$adjustNode
-        )
-
-      allComb <- as.data.frame(combn(names(gd), 2))
-
-      pathData <- list(path = vector("character", 0), open = vector("character", 0))
-      for (i in 1:ncol(allComb)) {
-        pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
-                             Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
-        pathData$path <- c(pathData$path, pathResults$paths)
-        pathData$open <- c(pathData$open, pathResults$open)
-      }
-
-      openPaths <- grep("TRUE", pathData$open)
-
-      return(cat(pathData$path[openPaths][str_count(pathData$path[openPaths], "-") >= 1], sep = "\n"))
-    } else {
-      return(print(""))
+  daggity_paths <- reactive({
+    req(input$showFlow)
+    validate(need(length(rv$edges) > 0, "Please add at least one edge"))
+    
+    # need both exposure and outcome node
+    requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
+    requires_nodes <- requires_nodes[requires_nodes == ""]
+    validate(
+      need(
+        length(requires_nodes) == 0, {
+          nodes_plural <- if (length(requires_nodes) > 1) "nodes" else "node"
+          requires_nodes <- paste(names(requires_nodes), collapse = " and ")
+          glue::glue("Please choose {requires_nodes} {nodes_plural}")
+        })
+    )
+    
+    nodes <- invertNames(node_names(rv$nodes))
+    gd <- g_dagitty() %>% 
+      dagitty_apply(
+        rv$nodes,
+        exposures = input$exposureNode,
+        outcomes  = input$outcomeNode,
+        adjusted  = input$adjustNode
+      )
+    
+    allComb <- as.data.frame(combn(names(gd), 2))
+    
+    pathData <- list(path = vector("character", 0), open = vector("character", 0))
+    for (i in 1:ncol(allComb)) {
+      pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
+                           Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
+      pathData$path <- c(pathData$path, pathResults$paths)
+      pathData$open <- c(pathData$open, pathResults$open)
     }
+    
+    pathData$open <- as.logical(pathData$open)
+    pathData
+  })
+  
+  daggity_format_paths <- function(paths, open = TRUE) {
+    paths_which <- if (open) paths$open else !paths$open
+    paths_selected <- paths$path[paths_which]
+    paths_selected <- paths_selected[grepl("-", paths_selected, fixed = TRUE)]
+    
+    HTML(paste0(
+     "<pre><code>",
+     paste(trimws(paths_selected), collapse = '\n'),
+     "\n</code></pre>"
+    ))
+  }
+  
+  output$openPaths <- renderUI({
+    req(node_names(rv$nodes), input$showFlow)
+
+    daggity_format_paths(daggity_paths(), open = TRUE)
   })
 
-  output$closedPaths <- renderPrint({
-    req(node_names(rv$nodes), input$exposureNode, input$outcomeNode)
-    if (!is.null(input$exposureNode) & !is.null(input$outcomeNode)) {
-      nodes <- invertNames(node_names(rv$nodes))
-      gd <- g_dagitty() %>% 
-        dagitty_apply(
-          rv$nodes,
-          exposures = input$exposureNode,
-          outcomes  = input$outcomeNode,
-          adjusted  = input$adjustNode
-        )
-
-      allComb <- as.data.frame(combn(names(gd), 2))
-
-      pathData <- list(path = vector("character", 0), open = vector("character", 0))
-      for (i in 1:ncol(allComb)) {
-        pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
-                             Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
-        pathData$path <- c(pathData$path, pathResults$paths)
-        pathData$open <- c(pathData$open, pathResults$open)
-      }
-
-      closedPaths <- grep("FALSE", pathData$open)
-
-      return(cat(pathData$path[closedPaths][str_count(pathData$path[closedPaths], "-") >= 1], sep = "\n"))
-    } else {
-      return(print(""))
-    }
+  output$closedPaths <- renderUI({
+    req(node_names(rv$nodes), input$showFlow)
+    
+    daggity_format_paths(daggity_paths(), open = FALSE)
   })
   
   # ---- Edit Aesthetics ----
