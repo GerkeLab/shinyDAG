@@ -1026,7 +1026,7 @@ server <- function(input, output, session) {
     tags$img(
       src = sub("www/", "", image_tmp, fixed = TRUE),
       contentType = "image/png",
-      style = "width: 100%; max-height: 600px; -o-object-fit: contain;",
+      style = "max-width: 100%; max-height: 600px; -o-object-fit: contain;",
       alt = "DAG"
     )
   })
