@@ -640,6 +640,7 @@ server <- function(input, output, session) {
       glue::glue_data("{from}->{to};") %>% 
       glue::glue_collapse()
     dagitty_code <- glue::glue("dag {{ {dagitty_paths} }}")
+    debug_input(dagitty_code, "daggity_code")
     
     dagitty(dagitty_code)
   })
@@ -658,14 +659,12 @@ server <- function(input, output, session) {
     
     # need both exposure and outcome node
     requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
-    requires_nodes <- requires_nodes[requires_nodes == ""]
+    missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
     validate(
       need(
-        length(requires_nodes) == 0, {
-          nodes_plural <- if (length(requires_nodes) > 1) "nodes" else "node"
-          requires_nodes <- paste(names(requires_nodes), collapse = " and ")
-          glue::glue("Please choose {requires_nodes} {nodes_plural}")
-        })
+        length(missing_nodes) == 0, 
+        glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
+      )
     )
     
     nodes <- invertNames(node_names(rv$nodes))
