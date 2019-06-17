@@ -13,6 +13,8 @@ library(shinyWidgets)
 library(shinyjs)
 # Additional libraries: tidyr, digest, rlang
 
+enableBookmarking(store = "server")
+
 tex_opts$set(list(
   density = 1200,
   margin = list(left = 0, top = 0, right = 0, bottom = 0),

@@ -10,7 +10,35 @@ server <- function(input, output, session) {
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
 
-
+  # ---- Bookmarking ----
+  onBookmark(function(state) {
+    state$values$rv <- list()
+    for (var in names(rv)) {
+      state$values$rv[[var]] <- rv[[var]]
+    }
+    state$values$node_list_btn_last_state <- node_list_btn_last_state
+  })
+  
+  onBookmarked(function(url) {
+    message("bookmark: ", url)
+    showBookmarkUrlModal(url)
+  })
+  
+  onRestore(function(state) {
+    showModal(modalDialog(
+      title = NULL, easyClose = FALSE, footer = NULL,
+      tags$p(class = "text-center", "Loading your ShinyDag bookmark, please wait.")
+    ))
+    debug_input(state$values)
+    for (var in names(rv)) {
+      rv[[var]] <- state$values$rv[[var]]
+    }
+    node_list_btn_last_state <<- state$values$node_list_btn_last_state
+  })
+  
+  onRestored(function(state) {
+    removeModal()
+  })
   
   # ---- Reactive Values ----
   rv <- reactiveValues(
