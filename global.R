@@ -53,3 +53,15 @@ warnNotification <- function(...) showNotification(
 )
 
 invertNames <- function(x) setNames(names(x), unname(x))
+
+# String utilities ----
+
+str_and <- function(...) {
+  x <- c(...)
+  last <- if (length(x) > 2) ", and " else " and "
+  glue::glue_collapse(x, sep = ", ", last = last)
+}
+
+str_plural <- function(x, word, plural = paste0(word, "s")) {
+  if (length(x) > 1) plural else word
+}
