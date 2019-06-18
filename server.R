@@ -9,7 +9,7 @@ server <- function(input, output, session) {
     unlink(SESSION_TEMPDIR, recursive = TRUE)
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
-
+  
   # ---- Bookmarking ----
   onBookmark(function(state) {
     state$values$rv <- list()
@@ -26,7 +26,9 @@ server <- function(input, output, session) {
   
   onRestore(function(state) {
     showModal(modalDialog(
-      title = NULL, easyClose = FALSE, footer = NULL,
+      title = NULL,
+      easyClose = FALSE,
+      footer = NULL,
       tags$p(class = "text-center", "Loading your ShinyDag bookmark, please wait.")
     ))
     debug_input(state$values)
@@ -42,11 +44,11 @@ server <- function(input, output, session) {
   
   # ---- Reactive Values ----
   rv <- reactiveValues(
-    g    = make_empty_graph(),
-    gg   = make_empty_graph(),
+    g = make_empty_graph(),
+    gg = make_empty_graph(),
     edges = list(),
     nodes = list(),
-    pts  = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
+    pts = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
     pts2 = tibble(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
   
@@ -90,21 +92,27 @@ server <- function(input, output, session) {
     if (any(name_in_nodes)) {
       if (warn) warnNotification('"', name, '" is already the name of a node')
       FALSE
-    } else TRUE
+    } else {
+      TRUE
+    }
   }
   
   node_names <- function(nodes, all = FALSE) {
-    if (!length(nodes)) return(character())
+    if (!length(nodes)) {
+      return(character())
+    }
     x <- invertNames(sapply(nodes, function(x) x$name))
-    if (all) return(x)
+    if (all) {
+      return(x)
+    }
     has_position <- sapply(nodes, function(x) !is.na(x$x))
     x[has_position]
   }
   
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
     nodes[[hash]]$name <- name %||% nodes[[hash]]$name
-    nodes[[hash]]$x    <-    x %||% nodes[[hash]]$x
-    nodes[[hash]]$y    <-    y %||% nodes[[hash]]$y
+    nodes[[hash]]$x <- x %||% nodes[[hash]]$x
+    nodes[[hash]]$y <- y %||% nodes[[hash]]$y
     nodes
   }
   
@@ -114,11 +122,15 @@ server <- function(input, output, session) {
   }
   
   node_frame <- function(nodes, full = FALSE) {
-    if (!length(nodes)) return(tibble())
-    x <- bind_rows(nodes) %>% 
-      mutate(hash = names(nodes)) %>% 
+    if (!length(nodes)) {
+      return(tibble())
+    }
+    x <- bind_rows(nodes) %>%
+      mutate(hash = names(nodes)) %>%
       select(hash, everything())
-    if (full) return(x)
+    if (full) {
+      return(x)
+    }
     filter(x, !is.na(x))
   }
   
@@ -133,15 +145,15 @@ server <- function(input, output, session) {
   }
   
   node_nearest <- function(nodes, coordinfo, threshold = 0.5) {
-    nodes %>% 
-      node_frame() %>% 
-      mutate(dist = (x - coordinfo$x)^2 + (y - coordinfo$y)^2) %>% 
-      arrange(dist) %>% 
-      filter(dist <= threshold) %>% 
-      slice(1) %>% 
+    nodes %>%
+      node_frame() %>%
+      mutate(dist = (x - coordinfo$x)^2 + (y - coordinfo$y)^2) %>%
+      arrange(dist) %>%
+      filter(dist <= threshold) %>%
+      slice(1) %>%
       select(-dist)
   }
-
+  
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
@@ -193,7 +205,9 @@ server <- function(input, output, session) {
   
   output$nodeListButtons <- renderUI({
     req(rv$nodes)
-    if (!length(rv$nodes)) return()
+    if (!length(rv$nodes)) {
+      return()
+    }
     node_list_buttons <- vector("list", length(rv$nodes))
     for (i in seq_along(rv$nodes)) {
       node_btn_id.this <- node_btn_id(names(rv$nodes)[i])
@@ -272,7 +286,7 @@ server <- function(input, output, session) {
     }
     node_list_btn_last_state <<- vapply(
       names(node_list_btn_last_state),
-      function(n) input[[n]] %||% FALSE, 
+      function(n) input[[n]] %||% FALSE,
       FALSE
     )
   }, priority = -10)
@@ -290,22 +304,24 @@ server <- function(input, output, session) {
     req(node_list_btn_sel())
     if (node_btn_sel_has_point()) {
       actionButton(
-        "node_delete", "", 
-        icon = icon("eraser"), 
-        class = "btn-warning", 
+        "node_delete",
+        "",
+        icon = icon("eraser"),
+        class = "btn-warning",
         alt = "Remove Node from DAG",
-        `data-toggle` = "tooltip", 
-        `data-placement` = "bottom",  
+        `data-toggle` = "tooltip",
+        `data-placement` = "bottom",
         title = "Remove Node from DAG"
       )
     } else {
       actionButton(
-        "node_delete", "", 
-        icon = icon("trash"), 
-        class = "btn-danger", 
+        "node_delete",
+        "",
+        icon = icon("trash"),
+        class = "btn-danger",
         alt = "Delete Node",
-        `data-toggle` = "tooltip", 
-        `data-placement` = "bottom",  
+        `data-toggle` = "tooltip",
+        `data-placement` = "bottom",
         title = "Delete Node"
       )
     }
@@ -338,7 +354,7 @@ server <- function(input, output, session) {
     # Clear node input
     updateSearchInput(session, "nodeLabel", value = "", label = "")
   })
-
+  
   # ---- Click Pad ----
   req_nodes <- function() {
     if (!length(rv$nodes)) {
@@ -367,7 +383,9 @@ server <- function(input, output, session) {
   
   # Single Click Handler
   observeEvent(input$pad_click, {
-    if (!req_nodes()) return()
+    if (!req_nodes()) {
+      return()
+    }
     
     if (is.null(node_list_btn_sel())) {
       # No active node
@@ -389,10 +407,10 @@ server <- function(input, output, session) {
       # Set flag for edge UI updater to make this node the parent node
       rv$nodes[[node_hash]]$new_to_dag <- TRUE
     }
-        
+    
     rv$nodes <- node_update(
-      rv$nodes, 
-      node_hash, 
+      rv$nodes,
+      node_hash,
       x = round(input$pad_click$x),
       y = round(input$pad_click$y)
     )
@@ -402,7 +420,9 @@ server <- function(input, output, session) {
   
   # Double Click Handler
   observeEvent(input$pad_dblclick, {
-    if (!req_nodes()) return()
+    if (!req_nodes()) {
+      return()
+    }
     
     nearest_node <- node_nearest(rv$nodes, input$pad_dblclick)
     if (is.null(node_list_btn_sel())) {
@@ -424,7 +444,7 @@ server <- function(input, output, session) {
       }
     }
   })
-
+  
   # clickPad display
   output$clickPad <- renderPlot({
     req(rv$nodes)
@@ -433,24 +453,29 @@ server <- function(input, output, session) {
     if (nrow(rv_pts)) {
       active_node <- node_btn_get_hash(node_list_btn_sel())
       if (!length(active_node)) active_node <- ""
-      rv_pts <- mutate(rv_pts, color = case_when(
-        hash == active_node & hash == input$from_edge ~ "purple3",
-        hash == active_node & hash == input$to_edge ~ "darkorange3",
-        hash == active_node ~ "firebrick3",
-        hash == input$from_edge ~ "steelblue3",
-        hash == input$to_edge ~ "goldenrod3",
-        TRUE ~ "black"
-      ))
+      rv_pts <- mutate(
+        rv_pts,
+        color = case_when(
+          hash == active_node & hash == input$from_edge ~ "purple3",
+          hash == active_node & hash == input$to_edge ~ "darkorange3",
+          hash == active_node ~ "firebrick3",
+          hash == input$from_edge ~ "steelblue3",
+          hash == input$to_edge ~ "goldenrod3",
+          TRUE ~ "black"
+        )
+      )
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
       grid()
       if (length(rv$edges)) {
         e_pts <- edge_points(rv$edges, rv$nodes, push_by = 0.05)
         for (i in seq_len(nrow(e_pts))) {
           arrows(
-            e_pts$from.x[i], e_pts$from.y[i],
-            e_pts$to.x[i], e_pts$to.y[i],
+            e_pts$from.x[i],
+            e_pts$from.y[i],
+            e_pts$to.x[i],
+            e_pts$to.y[i],
             col = e_pts$color[i],
-            lty = e_pts$lty[i], 
+            lty = e_pts$lty[i],
             length = 0.1
           )
         }
@@ -461,7 +486,7 @@ server <- function(input, output, session) {
       grid()
     }
   })
-
+  
   # ---- Node - Options ----
   update_node_options <- function(nodes, inputId, updateFn, none_choice = TRUE, ...) {
     available_choices <- c("None" = "", node_names(nodes))
@@ -469,27 +494,35 @@ server <- function(input, output, session) {
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
     if (!length(s_choice) && none_choice) s_choice <- ""
     
-    updateFn(session, 
-             inputId, 
-             choices = available_choices, 
-             selected = s_choice,
-             ...
+    updateFn(
+      session,
+      inputId,
+      choices = available_choices,
+      selected = s_choice,
+      ...
     )
   }
   observe({
-    update_node_options(rv$nodes, "adjustNode", none_choice = FALSE, 
-                        updateCheckboxGroupInput, inline = TRUE)
+    update_node_options(
+      rv$nodes,
+      "adjustNode",
+      none_choice = FALSE,
+      updateCheckboxGroupInput,
+      inline = TRUE
+    )
     update_node_options(rv$nodes, "exposureNode", updateRadioButtons, inline = TRUE)
     update_node_options(rv$nodes, "outcomeNode", updateRadioButtons, inline = TRUE)
   })
-
+  
   output$adjustText <- renderText({
     if (is.null(input$exposureNode) & is.null(input$outcomeNode)) {
       paste0("Minimal sufficient adjustment sets")
     } else {
       paste0(
         "Minimal sufficient adjustment set(s) to estimate the effect of ",
-        input$exposureNode, " on ", input$outcomeNode
+        input$exposureNode,
+        " on ",
+        input$outcomeNode
       )
     }
   })
@@ -499,13 +532,15 @@ server <- function(input, output, session) {
   
   edge_frame <- function(edges, nodes, ...) {
     dots <- rlang::enexprs(...)
-    bind_rows(edges) %>% 
-      mutate(hash = names(edges)) %>% 
-      tidyr::gather(position, node_hash, from:to) %>% 
-      left_join(select(node_frame(nodes), hash, name), 
-                by = c("node_hash" = "hash")) %>% 
-      select(-node_hash) %>% 
-      tidyr::spread(position, name) %>% 
+    bind_rows(edges) %>%
+      mutate(hash = names(edges)) %>%
+      tidyr::gather(position, node_hash, from:to) %>%
+      left_join(
+        select(node_frame(nodes), hash, name),
+        by = c("node_hash" = "hash")
+      ) %>%
+      select(-node_hash) %>%
+      tidyr::spread(position, name) %>%
       mutate(!!!dots)
   }
   
@@ -514,24 +549,24 @@ server <- function(input, output, session) {
   }
   
   edge_points <- function(edges, nodes, push_by = 0) {
-    e_df <- edge_frame(edges, nodes) 
+    e_df <- edge_frame(edges, nodes)
     
-    e_df %>% 
-      select(hash, from, to) %>% 
-      tidyr::gather(key, name, -hash) %>% 
-      left_join(node_frame(nodes)[, -1], by = "name") %>% 
-      tidyr::gather(var, pt, x:y) %>% 
-      mutate(var = paste(key, var, sep = ".")) %>% 
-      select(-name, -key) %>% 
-      tidyr::spread(var, pt) %>% 
-      left_join(e_df, by = "hash") %>% 
+    e_df %>%
+      select(hash, from, to) %>%
+      tidyr::gather(key, name, -hash) %>%
+      left_join(node_frame(nodes)[, -1], by = "name") %>%
+      tidyr::gather(var, pt, x:y) %>%
+      mutate(var = paste(key, var, sep = ".")) %>%
+      select(-name, -key) %>%
+      tidyr::spread(var, pt) %>%
+      left_join(e_df, by = "hash") %>%
       mutate(
-        d_x = to.x - from.x, 
+        d_x = to.x - from.x,
         d_y = to.y - from.y,
-        from.x = from.x + push_by * d_x, 
-        from.y = from.y + push_by * d_y, 
-        to.x   = to.x   - push_by * d_x, 
-        to.y   = to.y   - push_by * d_y
+        from.x = from.x + push_by * d_x,
+        from.y = from.y + push_by * d_y,
+        to.x = to.x - push_by * d_x,
+        to.y = to.y - push_by * d_y
       )
   }
   
@@ -562,12 +597,18 @@ server <- function(input, output, session) {
         from_edge <- input$from_edge
       }
       
-      updateSelectizeInput(session, "from_edge", 
-                           choices = c("Choose edge parent" = "", node_choices()), 
-                           selected = from_edge)
-      updateSelectizeInput(session, "to_edge", 
-                           choices = c("Choose edge child" = "", node_choices()), 
-                           selected = input$to_edge)
+      updateSelectizeInput(
+        session,
+        "from_edge",
+        choices = c("Choose edge parent" = "", node_choices()),
+        selected = from_edge
+      )
+      updateSelectizeInput(
+        session,
+        "to_edge",
+        choices = c("Choose edge child" = "", node_choices()),
+        selected = input$to_edge
+      )
     } else {
       node_choices <- c("Add a node to the plot area" = "")
       updateSelectizeInput(session, "from_edge", choices = node_choices())
@@ -592,19 +633,21 @@ server <- function(input, output, session) {
     } else {
       # Add edge
       rv$edges[[this_edge_key]] <- list(
-        from  = input$from_edge, 
-        to    = input$to_edge,
+        from = input$from_edge,
+        to = input$to_edge,
         color = "black",
         angle = 0.0,
         lineT = "thin",
-        lty   = "solid"
+        lty = "solid"
       )
     }
     debug_input(rv$edges, "rv$edges")
   })
   
   output$ui_edge_btn <- renderUI({
-    if(is.null(input$from_edge) || is.null(input$to_edge)) return()
+    if (is.null(input$from_edge) || is.null(input$to_edge)) {
+      return()
+    }
     this_edge_key <- edge_key(input$from_edge, input$to_edge)
     if (input$from_edge == "" || input$to_edge == "") {
       # Disabled button
@@ -636,8 +679,8 @@ server <- function(input, output, session) {
   g_dagitty <- reactive({
     req(length(rv$edges) > 0)
     edges <- edge_frame(rv$edges, rv$nodes)
-    dagitty_paths <- edges %>% 
-      glue::glue_data("{from}->{to};") %>% 
+    dagitty_paths <- edges %>%
+      glue::glue_data("{from}->{to};") %>%
       glue::glue_collapse()
     dagitty_code <- glue::glue("dag {{ {dagitty_paths} }}")
     debug_input(dagitty_code, "daggity_code")
@@ -647,9 +690,9 @@ server <- function(input, output, session) {
   
   dagitty_apply <- function(gd, nodes, exposures = NULL, outcomes = NULL, adjusted = NULL) {
     nodes <- invertNames(node_names(nodes))
-    if (!is.null(exposures)) exposures(gd)      <- nodes[exposures]
-    if (!is.null(outcomes))  outcomes(gd)       <- nodes[outcomes]
-    if (!is.null(adjusted))  adjustedNodes(gd)  <- nodes[adjusted]
+    if (!is.null(exposures)) exposures(gd) <- nodes[exposures]
+    if (!is.null(outcomes)) outcomes(gd) <- nodes[outcomes]
+    if (!is.null(adjusted)) adjustedNodes(gd) <- nodes[adjusted]
     gd
   }
   
@@ -662,26 +705,30 @@ server <- function(input, output, session) {
     missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
     validate(
       need(
-        length(missing_nodes) == 0, 
+        length(missing_nodes) == 0,
         glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
       )
     )
     
     nodes <- invertNames(node_names(rv$nodes))
-    gd <- g_dagitty() %>% 
+    gd <- g_dagitty() %>%
       dagitty_apply(
         rv$nodes,
         exposures = input$exposureNode,
-        outcomes  = input$outcomeNode,
-        adjusted  = input$adjustNode
+        outcomes = input$outcomeNode,
+        adjusted = input$adjustNode
       )
     
     allComb <- as.data.frame(combn(names(gd), 2))
     
     pathData <- list(path = vector("character", 0), open = vector("character", 0))
     for (i in 1:ncol(allComb)) {
-      pathResults <- paths(gd, from = allComb[1, i], to = allComb[2, i], 
-                           Z = input$adjustNode %??% unname(nodes[input$adjustNode]))
+      pathResults <- paths(
+        gd,
+        from = allComb[1, i],
+        to = allComb[2, i],
+        Z = input$adjustNode %??% unname(nodes[input$adjustNode])
+      )
       pathData$path <- c(pathData$path, pathResults$paths)
       pathData$open <- c(pathData$open, pathResults$open)
     }
@@ -696,18 +743,19 @@ server <- function(input, output, session) {
     paths_selected <- paths_selected[grepl("-", paths_selected, fixed = TRUE)]
     
     HTML(paste0(
-     "<pre><code>",
-     paste(trimws(paths_selected), collapse = '\n'),
-     "\n</code></pre>"
+      "<pre><code>",
+      paste(trimws(paths_selected), collapse = "
+"),
+      "\n</code></pre>"
     ))
   }
   
   output$openPaths <- renderUI({
     req(node_names(rv$nodes), input$showFlow)
-
+    
     daggity_format_paths(daggity_paths(), open = TRUE)
   })
-
+  
   output$closedPaths <- renderUI({
     req(node_names(rv$nodes), input$showFlow)
     
@@ -720,8 +768,8 @@ server <- function(input, output, session) {
   # will create shinyInputs for each node pair.
   ui_edge_controls <- function(edge, edge_hash, inputFn, prefix_input, prefix_label, ...) {
     node_from <- invertNames(node_names(rv$nodes))[edge$from]
-    node_to   <- invertNames(node_names(rv$nodes))[edge$to]
-    input_name  <- paste(prefix_input, edge_hash, sep = "_")
+    node_to <- invertNames(node_names(rv$nodes))[edge$to]
+    input_name <- paste(prefix_input, edge_hash, sep = "_")
     input_label <- paste0(prefix_label, " ", node_from, "&nbsp;&#8594; ", node_to)
     
     if (input_name %in% names(input)) {
@@ -747,7 +795,10 @@ server <- function(input, output, session) {
       inputFn = sliderInput,
       prefix_input = "angle",
       prefix_label = "Angle for",
-      min = -180, max = 180, value = 0, step = 5
+      min = -180,
+      max = 180,
+      value = 0,
+      step = 5
     )
   })
   
@@ -798,13 +849,13 @@ server <- function(input, output, session) {
     rv_edges <- rv$edges
     edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
-    ) %>% 
-      filter(!grepl("-selectized$", inputId)) %>% 
+    ) %>%
+      filter(!grepl("-selectized$", inputId)) %>%
       # get current value of input
-      mutate(value = lapply(inputId, function(x) input[[x]])) %>% 
-      tidyr::separate(inputId, into = c("var", "hash"), sep = "_") %>% 
-      tidyr::spread(var, value) %>% 
-      tidyr::unnest() %>% 
+      mutate(value = lapply(inputId, function(x) input[[x]])) %>%
+      tidyr::separate(inputId, into = c("var", "hash"), sep = "_") %>%
+      tidyr::spread(var, value) %>%
+      tidyr::unnest() %>%
       split(.$hash)
     for (edge in edge_ui) {
       if (!edge$hash %in% names(rv_edges)) next
@@ -820,9 +871,9 @@ server <- function(input, output, session) {
   # output$tikzOut <- renderUI({
   #   tikzUpdateOutput()
   #   if (!file.exists(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"))) return(NULL)
-  # 
+  #
   #   serve_file_path <- file.path(sub("www/", "", SESSION_TEMPDIR, fixed = TRUE), "DAGimageDoc.pdf")
-  # 
+  #
   #   tags$iframe(
   #     style = "height:600px; width:100%",
   #     src = serve_file_path,
@@ -862,10 +913,12 @@ server <- function(input, output, session) {
   
   dag_node_lines <- function(nodeFrame) {
     # Node frame is all points (1, 7) to (7, 1) with columns x, y, name
-    nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-                             nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-                             nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
-                             nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y), ]
+    nodeFrame <- nodeFrame[
+      nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+        nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+        nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
+        nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
+      ]
     nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
     nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
     nodeLines <- vector("character", 0)
@@ -877,7 +930,7 @@ server <- function(input, output, session) {
     
     paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
   }
-
+  
   # Re-render TeX preview
   observe({
     req(rv$nodes, input$showPreview)
@@ -889,16 +942,16 @@ server <- function(input, output, session) {
       startZ <- "\\begin{tikzpicture}[>=latex]"
       endZ <- "\\end{tikzpicture}"
       pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
-
-      nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>% 
+      
+      nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
         left_join(
-          nodeFrame %>% select(x, y, name), 
+          nodeFrame %>% select(x, y, name),
           by = c("x", "y")
-        ) %>% 
+        ) %>%
         dag_node_lines()
-
+      
       edgeLines <- character()
-
+      
       if (length(rv$edges)) {
         # edge_points_rv() is a reactive that gathers values from aesthetics UI
         # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
@@ -908,12 +961,12 @@ server <- function(input, output, session) {
           glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
         }
         
-        edgePts <- edgePts %>% 
+        edgePts <- edgePts %>%
           mutate(
-            x_min  = min(from.x, to.x),
-            y_max  = max(from.y, to.y),
+            x_min = min(from.x, to.x),
+            y_max = max(from.y, to.y),
             parent = tikz_point(from.x, from.y, x_min, y_max),
-            child  = tikz_point(to.x, to.y, x_min, y_max),
+            child = tikz_point(to.x, to.y, x_min, y_max),
             edgeLine = glue::glue(
               "{parent} edge [>={input$arrowShape}, bend left = {edgePts$angle}, ",
               "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"
@@ -925,14 +978,14 @@ server <- function(input, output, session) {
       }
       
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
-
+      
       tikzLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
       tikzLines <- paste(tikzLines, collapse = "")
-
+      
       useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-
+      
       pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-
+      
       texPreview(
         obj = tikzLines,
         stem = "DAGimage",
@@ -959,29 +1012,39 @@ server <- function(input, output, session) {
     x[which_line] <- paste(y, collapse = "\n")
     writeLines(x, out_file)
   }
-
+  
   output$downloadButton <- downloadHandler(
     filename = function() {
-      paste0("DAG", Sys.Date(), ifelse(input$downloadType == 1, ".RData",
-        ifelse(input$downloadType == 2, ".tex",
-          ifelse(input$downloadType == 3, ".png",
-            ifelse(input$downloadType == 5, ".RData", ".pdf")
+      paste0(
+        "DAG",
+        Sys.Date(),
+        ifelse(
+          input$downloadType == 1,
+          ".RData",
+          ifelse(
+            input$downloadType == 2,
+            ".tex",
+            ifelse(
+              input$downloadType == 3,
+              ".png",
+              ifelse(input$downloadType == 5, ".RData", ".pdf")
+            )
           )
         )
-      ))
+      )
     },
     content = function(file) {
       if (input$downloadType == 1) {
         daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-
+        
         g2 <- dagitty(daggityCode2)
-
+        
         exposures(g2) <- input$exposureNode
         outcomes(g2) <- input$outcomeNode
         adjustedNodes(g2) <- input$adjustNode
-
+        
         dagitty_code <- g2
         save(dagitty_code, file = file)
       } else if (input$downloadType == 2) {
@@ -997,22 +1060,23 @@ server <- function(input, output, session) {
         daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-
+        
         g2 <- dagitty(daggityCode2)
-
+        
         exposures(g2) <- input$exposureNode
         outcomes(g2) <- input$outcomeNode
         adjustedNodes(g2) <- input$adjustNode
-
+        
         tidy_dag <- tidy_dagitty(g2)
         save(tidy_dag, file = file)
       } else {
         myfile <- file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf")
         file.copy(myfile, file)
       }
-    }, contentType = NA
+    },
+    contentType = NA
   )
-
+  
   # ---- TeX Editor ----
   output$texEdit <- renderUI({
     if (length(V(rv$g)$name) >= 1) {
@@ -1021,12 +1085,14 @@ server <- function(input, output, session) {
       startZ <- "\\\\begin{tikzpicture}[>=latex]"
       endZ <- "\\\\end{tikzpicture}"
       pathZ <- "\\\\path[->,font=\\\\scriptsize,>=angle 90]"
-
+      
       nodeFrame <- rv$pts2
-      nodeFrame <- nodeFrame[nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
-        nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y), ]
+      nodeFrame <- nodeFrame[
+        nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+          nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
+          nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
+          nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
+        ]
       nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
       nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
       nodeLines <- vector("character", 0)
@@ -1036,64 +1102,81 @@ server <- function(input, output, session) {
       }
       nodeLines <- rev(nodeLines)
       nodeLines2 <- nodeLines
-
+      
       nodeLines <- paste0("\\\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
-
+      
       edgeLines <- vector("character", 0)
-
+      
       if (length(E(rv$g)) >= 1) {
         edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
         edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
         edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
         edgeFrame$parent <- edgeFrame$child <- NA
-
+        
         nodeFrame$revY <- rev(nodeFrame$y)
-
+        
         for (i in 1:length(edgeFrame$name)) {
           edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle", edgeFrame$name[i])]]), as.numeric(input[[paste0("angle", edgeFrame$name[i])]]), 0)
           edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color", edgeFrame$name[i])]]), "black", input[[paste0("color", edgeFrame$name[i])]])
           edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT", edgeFrame$name[i])]]), "thin", input[[paste0("lineT", edgeFrame$name[i])]])
           edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty", edgeFrame$name[i])]]), "solid", input[[paste0("lty", edgeFrame$name[i])]])
           edgeFrame$parent[i] <- paste0(
-            "(m-", (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$revY - min(nodeFrame$revY) + 1), "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$x - min(nodeFrame$x) + 1), ")"
+            "(m-",
+            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$revY - min(nodeFrame$revY) + 1),
+            "-",
+            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$x - min(nodeFrame$x) + 1),
+            ")"
           )
           edgeFrame$child[i] <- paste0(
-            "(m-", (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$revY - min(nodeFrame$revY) + 1), "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$x - min(nodeFrame$x) + 1), ")"
+            "(m-",
+            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$revY - min(nodeFrame$revY) + 1),
+            "-",
+            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$x - min(nodeFrame$x) + 1),
+            ")"
           )
           createEdge <- paste0(
-            edgeFrame$parent[i], " edge [>=", input$arrowShape, ", bend left = ", edgeFrame$angle[i],
-            ", color = ", edgeFrame$color[i], ",", edgeFrame$type[i], ",", edgeFrame$thick[i],
-            "] node[auto] {$~$} ", edgeFrame$child[i], " "
+            edgeFrame$parent[i],
+            " edge [>=",
+            input$arrowShape,
+            ", bend left = ",
+            edgeFrame$angle[i],
+            ", color = ",
+            edgeFrame$color[i],
+            ",",
+            edgeFrame$type[i],
+            ",",
+            edgeFrame$thick[i],
+            "] node[auto] {$~$} ",
+            edgeFrame$child[i],
+            " "
           )
           edgeLines <- c(edgeLines, createEdge)
         }
       }
-
+      
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
-
+      
       allLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
-
+      
       tikzTemp <- paste(allLines, collapse = "")
     } else {
       startZ <- "\\\\begin{tikzpicture}[>=latex]"
       endZ <- "\\\\end{tikzpicture}"
-
+      
       allLines <- c(startZ, endZ)
-
+      
       tikzTemp <- paste(allLines, collapse = "")
     }
     aceEditor("texChange", mode = "latex", value = paste(allLines, collapse = "\n"), theme = "cobalt")
   })
-
+  
   output$tikzOutNew <- renderUI({
     tikzTemp <- input$texChange
-
+    
     useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-
+    
     pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-
+    
     texPreview(
       obj = tikzTemp,
       stem = "DAGimageEdit",
@@ -1108,18 +1191,26 @@ server <- function(input, output, session) {
     )
     
     session_id <- sub("www/", "", SESSION_TEMPDIR, fixed = TRUE)
-
+    
     return(tags$iframe(
-      style = "height:560px; width:100%", src = file.path(session_id, "DAGimageEditDoc.pdf"),
-      scrolling = "no", seamless = "seamless"
+      style = "height:560px; width:100%",
+      src = file.path(session_id, "DAGimageEditDoc.pdf"),
+      scrolling = "no",
+      seamless = "seamless"
     ))
   })
-
+  
   output$downloadButton2 <- downloadHandler(
     filename = function() {
-      paste0("DAG", Sys.Date(), ifelse(input$downloadType2 == 1, ".tex",
-        ifelse(input$downloadType2 == 2, ".png", ".pdf")
-      ))
+      paste0(
+        "DAG",
+        Sys.Date(),
+        ifelse(
+          input$downloadType2 == 1,
+          ".tex",
+          ifelse(input$downloadType2 == 2, ".png", ".pdf")
+        )
+      )
     },
     content = function(file) {
       if (input$downloadType2 == 1) {
@@ -1135,6 +1226,7 @@ server <- function(input, output, session) {
         myfile <- file.path(SESSION_TEMPDIR, "DAGimageEditDoc.pdf")
         file.copy(myfile, file)
       }
-    }, contentType = NA
+    },
+    contentType = NA
   )
 }
