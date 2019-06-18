@@ -40,6 +40,9 @@ server <- function(input, output, session) {
   
   onRestored(function(state) {
     removeModal()
+    update_node_options(rv$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
+    update_node_options(rv$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
+    update_node_options(rv$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
   })
   
   # ---- Reactive Values ----
@@ -488,11 +491,25 @@ server <- function(input, output, session) {
   })
   
   # ---- Node - Options ----
-  update_node_options <- function(nodes, inputId, updateFn, none_choice = TRUE, ...) {
+  update_node_options <- function(
+    nodes,
+    inputId,
+    updateFn,
+    none_choice = TRUE,
+    ...,
+    toggle = TRUE
+  ) {
     available_choices <- c("None" = "", node_names(nodes))
     if (!none_choice) available_choices <- available_choices[-1]
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
     if (!length(s_choice) && none_choice) s_choice <- ""
+    
+    if (toggle) {
+      shinyjs::toggleState(
+        inputId, 
+        condition = length(available_choices) - as.integer(none_choice) > 0
+      )
+    }
     
     updateFn(
       session,
@@ -502,16 +519,25 @@ server <- function(input, output, session) {
       ...
     )
   }
+  
   observe({
-    update_node_options(
-      rv$nodes,
-      "adjustNode",
-      none_choice = FALSE,
-      updateCheckboxGroupInput,
-      inline = TRUE
-    )
-    update_node_options(rv$nodes, "exposureNode", updateRadioButtons, inline = TRUE)
-    update_node_options(rv$nodes, "outcomeNode", updateRadioButtons, inline = TRUE)
+    update_node_options(rv$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
+    update_node_options(rv$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
+    update_node_options(rv$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
+  })
+  
+  observeEvent(input$exposureNode, {
+    req(input$exposureNode)
+    if (input$exposureNode == input$outcomeNode) {
+      updateSelectInput(session, "outcomeNode", selected = "")
+    }
+  })
+  
+  observeEvent(input$outcomeNode, {
+    req(input$outcomeNode)
+    if (input$outcomeNode == input$exposureNode) {
+      updateSelectInput(session, "exposureNode", selected = "")
+    }
   })
   
   output$adjustText <- renderText({

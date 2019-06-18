@@ -1,3 +1,5 @@
+class_3_col <- "col-md-4 col-md-offset-0 col-sm-8 col-sm-offset-2 col-xs-12"
+
 
 # UI ----------------------------------------------------------------------
 
@@ -122,9 +124,26 @@ function(request) {
                 uiOutput("ui_edge_btn")
               )
             ),
-            checkboxGroupInput("adjustNode", "Select nodes to adjust", inline = TRUE),
-            radioButtons("exposureNode", "Exposure", choices = c("None" = ""), inline = TRUE),
-            radioButtons("outcomeNode", "Outcome", choices = c("None" = ""), inline = TRUE)
+            fluidRow(
+              tags$div(
+                class = class_3_col,
+                shinyjs::disabled(
+                  selectInput("exposureNode", "Exposure", choices = c("None" = ""), width = "100%")
+                )
+              ),
+              tags$div(
+                class = class_3_col,
+                shinyjs::disabled(
+                  selectInput("outcomeNode", "Outcome", choices = c("None" = ""), width = "100%")
+                )
+              ),
+              tags$div(
+                class = class_3_col,
+                shinyjs::disabled(
+                  selectizeInput("adjustNode", "Adjust for...", choices = c("None" = ""), width = "100%", multiple = TRUE)
+                )
+              )
+            )
           ),
           # ---- Tab: Edit Aesthetics ----
           tabPanel(
