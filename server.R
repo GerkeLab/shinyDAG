@@ -194,6 +194,7 @@ server <- function(input, output, session) {
     if (length(node_list_btn_now) && any(node_list_btn_now)) {
       updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
     }
+    shinyjs::runjs("toggle_reset_icon(false, el = nodelabel_reset)")
   })
   
   output$nodeListButtonsLabel <- renderUI({
@@ -224,8 +225,8 @@ server <- function(input, output, session) {
     tagList(
       tags$div(
         class = "btn-group",
-        node_list_buttons,
-        bsButton("nodeLabelAddNew", "", icon = icon("plus"), style = "primary")
+        node_list_buttons
+        # bsButton("nodeLabelAddNew", "", icon = icon("plus"), style = "primary")
       )
     )
   })
