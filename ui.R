@@ -10,6 +10,7 @@ function(request) {
     dashboardSidebar(disable = TRUE),
     dashboardBody(
       shinyjs::useShinyjs(),
+      tags$script(src = "shinydag.js", async = TRUE),
       fluidRow(
         # ---- Box: DAG ----
         box(
@@ -89,7 +90,7 @@ function(request) {
                   value = "",
                   placeholder = NULL,
                   btnSearch = icon("check"),
-                  btnReset = icon("backspace"),
+                  btnReset = icon("plus"),
                   width = "100%"
                 )
               ),
