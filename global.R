@@ -27,7 +27,7 @@ tex_opts$set(list(
 DEBUG <- getOption("shinydag.debug", FALSE)
 debug_input <- function(x, x_name = NULL) {
   if (!isTRUE(DEBUG)) return()
-  
+
   if (inherits(x, "igraph")) {
     cat("", capture.output(print(x)), sep = "\n")
   } else if (length(x) == 1 && !is.list(x)) {
