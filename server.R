@@ -17,6 +17,13 @@ server <- function(input, output, session) {
       state$values$rv[[var]] <- rv[[var]]
     }
     state$values$node_list_btn_last_state <- node_list_btn_last_state
+    
+    # Store outcome/exposure/adjust node selections
+    state$values$sel <- list(
+      exposureNode = input$exposureNode,
+      outcomeNode = input$outcomeNode,
+      adjustNode = input$adjustNode
+    )
   })
   
   onBookmarked(function(url) {
@@ -29,7 +36,7 @@ server <- function(input, output, session) {
       title = NULL,
       easyClose = FALSE,
       footer = NULL,
-      tags$p(class = "text-center", "Loading your ShinyDag bookmark, please wait.")
+      tags$p(class = "text-center", "Loading your ShinyDag workspace, please wait.")
     ))
     debug_input(state$values)
     for (var in names(rv)) {
