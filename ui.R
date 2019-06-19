@@ -47,19 +47,6 @@ function(request) {
                 bookmarkButton()
               )
             )
-          ),
-          prettySwitch(
-            inputId = "showFlow",
-            label = "Examine DAG elements",
-            status = "primary",
-            fill = TRUE
-          ),
-          conditionalPanel(
-            condition = "input.showFlow == 1",
-            fluidRow(
-              column(6, "Open paths", uiOutput("openPaths")),
-              column(6, "Closed paths", uiOutput("closedPaths"))
-            )
           )
         ),
         # ---- Box: Controls ----
@@ -142,6 +129,12 @@ function(request) {
                   selectizeInput("adjustNode", "Adjust for...", choices = c("None" = ""), width = "100%", multiple = TRUE)
                 )
               )
+            ),
+            fluidRow(
+              tags$div(
+                class = "col-sm-12",
+                uiOutput("openExpOutcomePaths")
+              )
             )
           ),
           # ---- Tab: Edit Aesthetics ----
@@ -177,7 +170,7 @@ function(request) {
             "Edit LaTeX",
             value = "edit_latex",
             helpText(
-              "WARNING: Editing code here will only change the appearance of", 
+              "WARNING: Editing code here will only change the appearance of",
               "the DAG and not the information on paths provided."
             ),
             uiOutput("texEdit"),

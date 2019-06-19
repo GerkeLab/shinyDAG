@@ -9,7 +9,7 @@ server <- function(input, output, session) {
     unlink(SESSION_TEMPDIR, recursive = TRUE)
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
-  
+
   # ---- Bookmarking ----
   onBookmark(function(state) {
     state$values$rv <- list()
@@ -17,7 +17,7 @@ server <- function(input, output, session) {
       state$values$rv[[var]] <- rv[[var]]
     }
     state$values$node_list_btn_last_state <- node_list_btn_last_state
-    
+
     # Store outcome/exposure/adjust node selections
     state$values$sel <- list(
       exposureNode = input$exposureNode,
@@ -25,12 +25,12 @@ server <- function(input, output, session) {
       adjustNode = input$adjustNode
     )
   })
-  
+
   onBookmarked(function(url) {
     message("bookmark: ", url)
     showBookmarkUrlModal(url)
   })
-  
+
   onRestore(function(state) {
     showModal(modalDialog(
       title = NULL,
@@ -44,14 +44,14 @@ server <- function(input, output, session) {
     }
     node_list_btn_last_state <<- state$values$node_list_btn_last_state
   })
-  
+
   onRestored(function(state) {
     removeModal()
     updateSelectInput(session, "exposureNode", selected = state$values$sel$exposureNode)
     updateSelectInput(session, "outcomeNode", selected = state$values$sel$outcomeNode)
     updateSelectizeInput(session, "adjustNode", selected = state$values$sel$adjustNode)
   })
-  
+
   # ---- Reactive Values ----
   rv <- reactiveValues(
     g = make_empty_graph(),
@@ -61,15 +61,15 @@ server <- function(input, output, session) {
     pts = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
     pts2 = tibble(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
   )
-  
+
   node_list_btn_last_state <- c()
-  
+
   # rv$edges is a named list, e.g. for hash(A) -> hash(B):
   # rv$edges[edge_key(hash(A), hash(B))] = list(from = hash(A), to = hash(B))
-  
+
   # rv$nodes is a named list where name is a hash
   # rv$nodes$abcdefg = list(name, x, y)
-  
+
   # rv$gg rebuilds whenever nodes or edges (or options?) change
   observe({
     req(length(rv$nodes))
@@ -82,17 +82,17 @@ server <- function(input, output, session) {
       # Add edges
       g <- g + edge_edges(rv$edges, rv$nodes)
     }
-    
+
     rv$gg <- g
     debug_input(rv$gg, "rv$gg")
   })
-  
+
   # ---- Node Helper Functions ----
   node_new <- function(nodes, hash, name) {
     nodes[[hash]] <- list(name = name, x = NA, y = NA)
     nodes
   }
-  
+
   node_name_valid <- function(nodes, name, warn = FALSE) {
     if (!nzchar(name)) {
       warnNotification("Please specify a name for the node")
@@ -106,7 +106,7 @@ server <- function(input, output, session) {
       TRUE
     }
   }
-  
+
   node_names <- function(nodes, all = FALSE) {
     if (!length(nodes)) {
       return(character())
@@ -118,19 +118,19 @@ server <- function(input, output, session) {
     has_position <- sapply(nodes, function(x) !is.na(x$x))
     x[has_position]
   }
-  
+
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
     nodes[[hash]]$name <- name %||% nodes[[hash]]$name
     nodes[[hash]]$x <- x %||% nodes[[hash]]$x
     nodes[[hash]]$y <- y %||% nodes[[hash]]$y
     nodes
   }
-  
+
   node_delete <- function(nodes, hash) {
     .nodes <- nodes[setdiff(names(nodes), hash)]
     if (length(.nodes)) .nodes else list()
   }
-  
+
   node_frame <- function(nodes, full = FALSE) {
     if (!length(nodes)) {
       return(tibble())
@@ -143,7 +143,7 @@ server <- function(input, output, session) {
     }
     filter(x, !is.na(x))
   }
-  
+
   node_vertices <- function(nodes) {
     v_df <- node_frame(nodes)
     vertices(
@@ -153,7 +153,7 @@ server <- function(input, output, session) {
       hash = v_df$hash
     )
   }
-  
+
   node_nearest <- function(nodes, coordinfo, threshold = 0.5) {
     nodes %>%
       node_frame() %>%
@@ -163,11 +163,11 @@ server <- function(input, output, session) {
       slice(1) %>%
       select(-dist)
   }
-  
+
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
-  
+
   # Add or modify node label on search button
   observeEvent(input$nodeLabel_search, {
     node_list_btn_now <- isolate(node_list_btn_state())
@@ -194,7 +194,7 @@ server <- function(input, output, session) {
     }
     debug_input(rv$nodes, "rv$nodes")
   })
-  
+
   # Untoggle node label on reset button (also clears text as well)
   observeEvent(input$nodeLabel_reset, {
     node_list_btn_now <- isolate(node_list_btn_state())
@@ -204,7 +204,7 @@ server <- function(input, output, session) {
     shinyjs::runjs("toggle_reset_icon(false, 'nodeLabel_reset')")
     shinyjs::runjs("set_input_focus('nodeLabel_text')")
   })
-  
+
   output$nodeListButtonsLabel <- renderUI({
     if (!length(rv$nodes)) {
       tags$p(tags$strong("Add a Node"))
@@ -214,7 +214,7 @@ server <- function(input, output, session) {
       tags$p(tags$strong("Edit or Place Selected Node"))
     }
   })
-  
+
   output$nodeListButtons <- renderUI({
     req(rv$nodes)
     if (!length(rv$nodes)) {
@@ -238,7 +238,7 @@ server <- function(input, output, session) {
       )
     )
   })
-  
+
   # Handle new node button triggered
   observeEvent(input$nodeLabelAddNew, {
     node_list_btn_now <- node_list_btn_state()
@@ -246,19 +246,19 @@ server <- function(input, output, session) {
       updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
     }
   })
-  
+
   # Disable new node button if in "add node" state
   observe({
     node_list_btn_now <- node_list_btn_sel()
     shinyjs::toggleState("nodeLabelAddNew", condition = !is.null(node_list_btn_now))
   })
-  
+
   # Current state of the node buttons, zero-length if no nodes yet
   node_list_btn_state <- reactive({
     node_list_input_ids <- grep("node_toggle", names(input), value = TRUE, fixed = TRUE)
     vapply(node_list_input_ids, function(n) input[[n]] %||% FALSE, FALSE)
   })
-  
+
   # ID of currently toggled button (otherwise NULL)
   node_list_btn_sel <- reactive({
     if (is.null(node_list_btn_state())) {
@@ -269,16 +269,16 @@ server <- function(input, output, session) {
       NULL
     }
   })
-  
+
   node_last_change_was_app <- reactiveVal(TRUE)
-  
+
   # Only one node toggled at a time
   observe({
     req(length(node_list_btn_state()) > 0)
     debug_input(isolate(node_last_change_was_app()), "node_last_change_was_app()")
     debug_input(node_list_btn_last_state, "node_list_btn_last_state")
     debug_input(node_list_btn_state(), "node_list_btn_state()")
-    
+
     if (isolate(node_last_change_was_app())) {
       # The app manually updated the button state, do nothing
       node_last_change_was_app(FALSE)
@@ -302,7 +302,7 @@ server <- function(input, output, session) {
       FALSE
     )
   }, priority = -10)
-  
+
   # Selecting existing node label button enables editing
   observe({
     req(node_list_btn_sel())
@@ -310,7 +310,7 @@ server <- function(input, output, session) {
     s_node_name <- isolate(rv$nodes[[s_node_list_btn_id]]$name)
     updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "")
   })
-  
+
   # Selecting existing node label enables node delete button
   output$node_ui_remove <- renderUI({
     req(node_list_btn_sel())
@@ -338,14 +338,14 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+
   # Erase or delete button?
   node_btn_sel_has_point <- reactive({
     req(node_list_btn_sel())
     node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
     !is.null(rv$nodes[[node_btn_hash]]) && !is.na(rv$nodes[[node_btn_hash]]$x)
   })
-  
+
   # Delete node
   observeEvent(input$node_delete, {
     s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
@@ -359,14 +359,14 @@ server <- function(input, output, session) {
     debug_input(rv$nodes, "rv$nodes")
     debug_input(node_list_btn_state(), "node_list_btn_state()")
   })
-  
+
   # Clear nodeLabel input when no node buttons selected
   observe({
     req(!any(node_list_btn_state()))
     # Clear node input
     updateSearchInput(session, "nodeLabel", value = "", label = "")
   })
-  
+
   # ---- Click Pad ----
   req_nodes <- function() {
     if (!length(rv$nodes)) {
@@ -375,67 +375,67 @@ server <- function(input, output, session) {
     }
     TRUE
   }
-  
+
   # Click Behavior Overview
   # 1. Double Click to Select/Deselect Node
   #     - Sets as Parent Node
   # 2. Single Click With Active Node
   #     - Blank Space: move/place node
   #     - On second node: set Child Node
-  
+
   toggle_node_btn_state <- function(id, state = NULL) {
     if (!grepl("_", id)) {
       # If no underscore, then it was a hash and not the full id
       id <- node_btn_id(id)
     }
-    
+
     state <- state %||% !input[[id]]
     updateButton(session, id, value = state)
   }
-  
+
   # Single Click Handler
   observeEvent(input$pad_click, {
     if (!req_nodes()) {
       return()
     }
-    
+
     if (is.null(node_list_btn_sel())) {
       # No active node
       warnNotification("Please double click to select a node")
       return()
     }
-    
+
     # Single Click on Node: Set Child Node
     nearest_node <- node_nearest(rv$nodes, input$pad_click)
     if (nrow(nearest_node)) {
       updateSelectizeInput(session, "to_edge", selected = nearest_node$hash)
       return()
     }
-    
+
     # Single Click on Space: Move Active Node
     node_hash <- node_btn_get_hash(node_list_btn_sel())
-    
+
     if (isTRUE(is.na(rv$nodes[[node_hash]]$x))) {
       # Set flag for edge UI updater to make this node the parent node
       rv$nodes[[node_hash]]$new_to_dag <- TRUE
     }
-    
+
     rv$nodes <- node_update(
       rv$nodes,
       node_hash,
       x = round(input$pad_click$x),
       y = round(input$pad_click$y)
     )
-    
+
     debug_input(rv$nodes, "rv$nodes")
   })
-  
+
   # Double Click Handler
   observeEvent(input$pad_dblclick, {
     if (!req_nodes()) {
       return()
     }
-    
+
     nearest_node <- node_nearest(rv$nodes, input$pad_dblclick)
     if (is.null(node_list_btn_sel())) {
       # No node currently active
@@ -456,12 +456,12 @@ server <- function(input, output, session) {
       }
     }
   })
-  
+
   # clickPad display
   output$clickPad <- renderPlot({
     req(rv$nodes)
     rv_pts <- node_frame(rv$nodes)
-    
+
     if (nrow(rv_pts)) {
       active_node <- node_btn_get_hash(node_list_btn_sel())
       if (!length(active_node)) active_node <- ""
@@ -498,28 +498,28 @@ server <- function(input, output, session) {
       grid()
     }
   })
-  
+
   # ---- Node - Options ----
   update_node_options <- function(
-    nodes,
-    inputId,
-    updateFn,
-    none_choice = TRUE,
-    ...,
-    toggle = TRUE
+                                nodes,
+                                inputId,
+                                updateFn,
+                                none_choice = TRUE,
+                                ...,
+                                toggle = TRUE
   ) {
     available_choices <- c("None" = "", node_names(nodes))
     if (!none_choice) available_choices <- available_choices[-1]
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
     if (!length(s_choice) && none_choice) s_choice <- ""
-    
+
     if (toggle) {
       shinyjs::toggleState(
-        inputId, 
+        inputId,
         condition = length(available_choices) - as.integer(none_choice) > 0
       )
     }
-    
+
     updateFn(
       session,
       inputId,
@@ -528,27 +528,27 @@ server <- function(input, output, session) {
       ...
     )
   }
-  
+
   observe({
     update_node_options(rv$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
     update_node_options(rv$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
     update_node_options(rv$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
   })
-  
+
   observeEvent(input$exposureNode, {
     req(input$exposureNode)
     if (input$exposureNode == input$outcomeNode) {
       updateSelectInput(session, "outcomeNode", selected = "")
     }
   })
-  
+
   observeEvent(input$outcomeNode, {
     req(input$outcomeNode)
     if (input$outcomeNode == input$exposureNode) {
       updateSelectInput(session, "exposureNode", selected = "")
     }
   })
-  
+
   output$adjustText <- renderText({
     if (is.null(input$exposureNode) & is.null(input$outcomeNode)) {
       paste0("Minimal sufficient adjustment sets")
@@ -561,10 +561,10 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+
   # ---- Edges - Add/Remove ----
   edge_key <- function(x, y) digest::digest(c(x, y))
-  
+
   edge_frame <- function(edges, nodes, ...) {
     dots <- rlang::enexprs(...)
     bind_rows(edges) %>%
@@ -578,14 +578,14 @@ server <- function(input, output, session) {
       tidyr::spread(position, name) %>%
       mutate(!!!dots)
   }
-  
+
   edge_edges <- function(edges, nodes, ...) {
     do.call(edge, as.list(edge_frame(edges, nodes, ...)))
   }
-  
+
   edge_points <- function(edges, nodes, push_by = 0) {
     e_df <- edge_frame(edges, nodes)
-    
+
     e_df %>%
       select(hash, from, to) %>%
       tidyr::gather(key, name, -hash) %>%
@@ -604,9 +604,9 @@ server <- function(input, output, session) {
         to.y = to.y - push_by * d_y
       )
   }
-  
+
   node_choices <- reactiveVal(NULL)
-  
+
   observe({
     # This observer exists to isolate parent/child node selection from
     # spurious changes in rv$nodes, i.e. to ensure that changes are propagated
@@ -617,12 +617,12 @@ server <- function(input, output, session) {
       node_choices(choices)
     }
   })
-  
+
   # Update Parent/Child node selection for edges
   observeEvent(node_choices(), {
     req(node_choices())
     if (length(node_choices())) {
-      
+
       # Force new node to be selected as parent node
       nodes_is_new <- purrr::map_lgl(rv$nodes, ~ "new_to_dag" %in% names(.))
       if (any(nodes_is_new)) {
@@ -631,7 +631,7 @@ server <- function(input, output, session) {
       } else {
         from_edge <- input$from_edge
       }
-      
+
       updateSelectizeInput(
         session,
         "from_edge",
@@ -650,7 +650,7 @@ server <- function(input, output, session) {
       updateSelectizeInput(session, "to_edge", choices = node_choices())
     }
   })
-  
+
   # Add or Remove Edges
   observeEvent(input$edge_btn, {
     if (input$from_edge == "") {
@@ -660,7 +660,7 @@ server <- function(input, output, session) {
       warnNotification('Please choose a "Child" node')
       return()
     }
-    
+
     this_edge_key <- edge_key(input$from_edge, input$to_edge)
     if (this_edge_key %in% names(rv$edges)) {
       # Remove edge
@@ -678,7 +678,7 @@ server <- function(input, output, session) {
     }
     debug_input(rv$edges, "rv$edges")
   })
-  
+
   output$ui_edge_btn <- renderUI({
     if (is.null(input$from_edge) || is.null(input$to_edge)) {
       return()
@@ -695,21 +695,21 @@ server <- function(input, output, session) {
       actionButton("edge_btn", "", icon = icon("plus"), class = "btn-success")
     }
   })
-  
+
   observeEvent(input$ui_edge_swap_btn, {
     s_from_edge <- input$from_edge
     s_to_edge <- input$to_edge
     updateSelectizeInput(session, "from_edge", selected = s_to_edge)
     updateSelectizeInput(session, "to_edge", selected = s_from_edge)
   })
-  
+
   observe({
     req(input$from_edge, input$to_edge)
     s_edges <- c(input$from_edge, input$to_edge)
     has_one_edge <- !all(s_edges == "")
     shinyjs::toggleState("ui_edge_swap_btn", has_one_edge)
   })
-  
+
   # ---- DAG Diagnostics ----
   g_dagitty <- reactive({
     req(length(rv$edges) > 0)
@@ -719,10 +719,10 @@ server <- function(input, output, session) {
       glue::glue_collapse()
     dagitty_code <- glue::glue("dag {{ {dagitty_paths} }}")
     debug_input(dagitty_code, "daggity_code")
-    
+
     dagitty(dagitty_code)
   })
-  
+
   dagitty_apply <- function(gd, nodes, exposures = NULL, outcomes = NULL, adjusted = NULL) {
     nodes <- invertNames(node_names(nodes))
     if (!is.null(exposures)) exposures(gd) <- nodes[exposures]
@@ -730,11 +730,10 @@ server <- function(input, output, session) {
     if (!is.null(adjusted)) adjustedNodes(gd) <- nodes[adjusted]
     gd
   }
-  
-  daggity_paths <- reactive({
-    req(input$showFlow)
-    validate(need(length(rv$edges) > 0, "Please add at least one edge"))
-    
+
+  dagitty_open_exp_outcome_paths <- reactive({
+    req(rv$edges)
+
     # need both exposure and outcome node
     requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
     missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
@@ -744,7 +743,7 @@ server <- function(input, output, session) {
         glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
       )
     )
-    
+
     nodes <- invertNames(node_names(rv$nodes))
     gd <- g_dagitty() %>%
       dagitty_apply(
@@ -753,52 +752,43 @@ server <- function(input, output, session) {
         outcomes = input$outcomeNode,
         adjusted = input$adjustNode
       )
-    
-    allComb <- as.data.frame(combn(names(gd), 2))
-    
-    pathData <- list(path = vector("character", 0), open = vector("character", 0))
-    for (i in 1:ncol(allComb)) {
-      pathResults <- paths(
-        gd,
-        from = allComb[1, i],
-        to = allComb[2, i],
-        Z = input$adjustNode %??% unname(nodes[input$adjustNode])
-      )
-      pathData$path <- c(pathData$path, pathResults$paths)
-      pathData$open <- c(pathData$open, pathResults$open)
-    }
-    
-    pathData$open <- as.logical(pathData$open)
-    pathData
+
+    exp_outcome_paths <- paths(
+      gd,
+      Z = input$adjustNode %??% unname(nodes[input$adjustNode])
+    )
+
+    exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
   })
-  
-  daggity_format_paths <- function(paths, open = TRUE) {
-    paths_which <- if (open) paths$open else !paths$open
-    paths_selected <- paths$path[paths_which]
-    paths_selected <- paths_selected[grepl("-", paths_selected, fixed = TRUE)]
-    
+
+  dagitty_format_paths <- function(paths) {
     HTML(paste0(
       "<pre><code>",
-      paste(trimws(paths_selected), collapse = "
+      paste(trimws(paths), collapse = "
 "),
       "\n</code></pre>"
     ))
   }
-  
-  output$openPaths <- renderUI({
-    req(node_names(rv$nodes), input$showFlow)
-    
-    daggity_format_paths(daggity_paths(), open = TRUE)
+
+  output$openExpOutcomePaths <- renderUI({
+    validate(need(length(rv$edges) > 0, "Please add at least one edge"))
+
+    open_paths <- dagitty_open_exp_outcome_paths()
+
+    if (length(open_paths)) {
+      tagList(
+        h5("Open associations between exposure and outcome"),
+        dagitty_format_paths(open_paths)
+      )
+    } else {
+      tagList(
+        helpText("No open associations between exposure and outcome.")
+      )
+    }
   })
-  
-  output$closedPaths <- renderUI({
-    req(node_names(rv$nodes), input$showFlow)
-    
-    daggity_format_paths(daggity_paths(), open = FALSE)
-  })
-  
+
   # ---- Edit Aesthetics ----
-  
+
   # ui_edge_controls() is designed to be lapply-ed over the edge list, and
   # will create shinyInputs for each node pair.
   ui_edge_controls <- function(edge, edge_hash, inputFn, prefix_input, prefix_label, ...) {
@@ -806,7 +796,7 @@ server <- function(input, output, session) {
     node_to <- invertNames(node_names(rv$nodes))[edge$to]
     input_name <- paste(prefix_input, edge_hash, sep = "_")
     input_label <- paste0(prefix_label, " ", node_from, "&nbsp;&#8594; ", node_to)
-    
+
     if (input_name %in% names(input)) {
       # Make sure current value doesn't change
       dots <- list(...)
@@ -820,7 +810,7 @@ server <- function(input, output, session) {
       inputFn(input_name, HTML(input_label), ...)
     }
   }
-  
+
   output$curveAngle <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
     req(length(isolate(rv$edges)) > 0)
@@ -836,7 +826,7 @@ server <- function(input, output, session) {
       step = 5
     )
   })
-  
+
   output$curveColor <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
     req(length(isolate(rv$edges)) > 0)
@@ -849,7 +839,7 @@ server <- function(input, output, session) {
       value = "black"
     )
   })
-  
+
   output$curveLty <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
     req(length(isolate(rv$edges)) > 0)
@@ -863,7 +853,7 @@ server <- function(input, output, session) {
       selected = "solid"
     )
   })
-  
+
   output$curveThick <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
     req(length(isolate(rv$edges)) > 0)
@@ -877,7 +867,7 @@ server <- function(input, output, session) {
       selected = "thin"
     )
   })
-  
+
   # Watch edge UI inputs and update rv$edges when inputs change
   observe({
     req(length(rv$edges) > 0, grepl("^angle_", names(input)))
@@ -901,7 +891,7 @@ server <- function(input, output, session) {
     }
     debug_input(rv_edges, "rv$edges after aes update")
   }, priority = -50)
-  
+
   # ---- Render DAG ----
   # output$tikzOut <- renderUI({
   #   tikzUpdateOutput()
@@ -917,7 +907,7 @@ server <- function(input, output, session) {
   #     seamless = "seamless"
   #   )
   # })
-  
+
   output$tikzOut <- renderUI({
     req(length(rv$nodes), input$showPreview)
     tikzUpdateOutput()
@@ -926,11 +916,11 @@ server <- function(input, output, session) {
       debug_line("Image does not exist: ", image_path)
       return()
     }
-    
+
     image_tmp <- tempfile("dag_image_", SESSION_TEMPDIR, ".png")
     file.copy(image_path, image_tmp)
     debug_line("Serving image: ", image_tmp)
-    
+
     tags$img(
       src = sub("www/", "", image_tmp, fixed = TRUE),
       contentType = "image/png",
@@ -938,14 +928,14 @@ server <- function(input, output, session) {
       alt = "DAG"
     )
   })
-  
+
   tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
-  
+
   edge_points_rv <- reactive({
     req(length(rv$edges) > 0)
     edge_points(rv$edges, rv$nodes)
   })
-  
+
   dag_node_lines <- function(nodeFrame) {
     # Node frame is all points (1, 7) to (7, 1) with columns x, y, name
     nodeFrame <- nodeFrame[
@@ -953,7 +943,7 @@ server <- function(input, output, session) {
         nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
         nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
         nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
-      ]
+    ]
     nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
     nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
     nodeLines <- vector("character", 0)
@@ -962,40 +952,40 @@ server <- function(input, output, session) {
       nodeLines <- c(nodeLines, createLines)
     }
     nodeLines <- rev(nodeLines)
-    
+
     paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
   }
-  
+
   # Re-render TeX preview
   observe({
     req(rv$nodes, input$showPreview)
     nodeFrame <- node_frame(rv$nodes)
-    
+
     if (nrow(nodeFrame)) {
       styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
       startZ <- "\\begin{tikzpicture}[>=latex]"
       endZ <- "\\end{tikzpicture}"
       pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
-      
+
       nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
         left_join(
           nodeFrame %>% select(x, y, name),
           by = c("x", "y")
         ) %>%
         dag_node_lines()
-      
+
       edgeLines <- character()
-      
+
       if (length(rv$edges)) {
         # edge_points_rv() is a reactive that gathers values from aesthetics UI
         # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
         edgePts <- debounce(edge_points_rv, 5000)()
-        
+
         tikz_point <- function(x, y, x_min, y_max) {
           glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
         }
-        
+
         edgePts <- edgePts %>%
           mutate(
             x_min = min(from.x, to.x),
@@ -1007,20 +997,20 @@ server <- function(input, output, session) {
               "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"
             )
           )
-        
+
         debug_input(select(edgePts, hash, matches("^(from|to)"), parent, child, edgeLine), "edgeLines")
         edgeLines <- edgePts$edgeLine
       }
-      
+
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
-      
+
       tikzLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
       tikzLines <- paste(tikzLines, collapse = "")
-      
+
       useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-      
+
       pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-      
+
       texPreview(
         obj = tikzLines,
         stem = "DAGimage",
@@ -1036,7 +1026,7 @@ server <- function(input, output, session) {
     }
     tikzUpdateOutput(!isolate(tikzUpdateOutput()))
   }, priority = -100)
-  
+
   # ---- Download Files ----
   # Merge tikz TeX source into main TeX file
   merge_tex_files <- function(main_file, input_file, out_file) {
@@ -1047,7 +1037,7 @@ server <- function(input, output, session) {
     x[which_line] <- paste(y, collapse = "\n")
     writeLines(x, out_file)
   }
-  
+
   output$downloadButton <- downloadHandler(
     filename = function() {
       paste0(
@@ -1073,13 +1063,13 @@ server <- function(input, output, session) {
         daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-        
+
         g2 <- dagitty(daggityCode2)
-        
+
         exposures(g2) <- input$exposureNode
         outcomes(g2) <- input$outcomeNode
         adjustedNodes(g2) <- input$adjustNode
-        
+
         dagitty_code <- g2
         save(dagitty_code, file = file)
       } else if (input$downloadType == 2) {
@@ -1095,13 +1085,13 @@ server <- function(input, output, session) {
         daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-        
+
         g2 <- dagitty(daggityCode2)
-        
+
         exposures(g2) <- input$exposureNode
         outcomes(g2) <- input$outcomeNode
         adjustedNodes(g2) <- input$adjustNode
-        
+
         tidy_dag <- tidy_dagitty(g2)
         save(tidy_dag, file = file)
       } else {
@@ -1111,7 +1101,7 @@ server <- function(input, output, session) {
     },
     contentType = NA
   )
-  
+
   # ---- TeX Editor ----
   output$texEdit <- renderUI({
     if (length(V(rv$g)$name) >= 1) {
@@ -1120,14 +1110,14 @@ server <- function(input, output, session) {
       startZ <- "\\\\begin{tikzpicture}[>=latex]"
       endZ <- "\\\\end{tikzpicture}"
       pathZ <- "\\\\path[->,font=\\\\scriptsize,>=angle 90]"
-      
+
       nodeFrame <- rv$pts2
       nodeFrame <- nodeFrame[
         nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
           nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
           nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
           nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
-        ]
+      ]
       nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
       nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
       nodeLines <- vector("character", 0)
@@ -1137,19 +1127,19 @@ server <- function(input, output, session) {
       }
       nodeLines <- rev(nodeLines)
       nodeLines2 <- nodeLines
-      
+
       nodeLines <- paste0("\\\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
-      
+
       edgeLines <- vector("character", 0)
-      
+
       if (length(E(rv$g)) >= 1) {
         edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
         edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
         edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
         edgeFrame$parent <- edgeFrame$child <- NA
-        
+
         nodeFrame$revY <- rev(nodeFrame$y)
-        
+
         for (i in 1:length(edgeFrame$name)) {
           edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle", edgeFrame$name[i])]]), as.numeric(input[[paste0("angle", edgeFrame$name[i])]]), 0)
           edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color", edgeFrame$name[i])]]), "black", input[[paste0("color", edgeFrame$name[i])]])
@@ -1188,30 +1178,30 @@ server <- function(input, output, session) {
           edgeLines <- c(edgeLines, createEdge)
         }
       }
-      
+
       edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
-      
+
       allLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
-      
+
       tikzTemp <- paste(allLines, collapse = "")
     } else {
       startZ <- "\\\\begin{tikzpicture}[>=latex]"
       endZ <- "\\\\end{tikzpicture}"
-      
+
       allLines <- c(startZ, endZ)
-      
+
       tikzTemp <- paste(allLines, collapse = "")
     }
     aceEditor("texChange", mode = "latex", value = paste(allLines, collapse = "\n"), theme = "cobalt")
   })
-  
+
   output$tikzOutNew <- renderUI({
     tikzTemp <- input$texChange
-    
+
     useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-    
+
     pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-    
+
     texPreview(
       obj = tikzTemp,
       stem = "DAGimageEdit",
@@ -1224,9 +1214,9 @@ server <- function(input, output, session) {
       margin = tex_opts$get("margin"),
       cleanup = tex_opts$get("cleanup")
     )
-    
+
     session_id <- sub("www/", "", SESSION_TEMPDIR, fixed = TRUE)
-    
+
     return(tags$iframe(
       style = "height:560px; width:100%",
       src = file.path(session_id, "DAGimageEditDoc.pdf"),
@@ -1234,7 +1224,7 @@ server <- function(input, output, session) {
       seamless = "seamless"
     ))
   })
-  
+
   output$downloadButton2 <- downloadHandler(
     filename = function() {
       paste0(
