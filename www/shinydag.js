@@ -1,8 +1,5 @@
-const nodelabel = document.querySelector("#nodeLabel_text")
-const nodelabel_reset = document.querySelector("#nodeLabel_reset")
-
-const toggle_reset_icon = (v = null, el) => {
-  icon = el.getElementsByTagName("i")[0]
+const toggle_reset_icon = (v = false, id) => {
+  const icon = document.getElementById(id).getElementsByTagName("i")[0]
   if (v) {
     icon.className = "fa fa-backspace"
   } else {
@@ -10,6 +7,15 @@ const toggle_reset_icon = (v = null, el) => {
   }
 }
 
+const set_input_focus = (id) => {
+  const el = document.getElementById(id)
+  if (el) {
+    el.focus()
+  }
+}
+
+// Watch #nodeLabel input and make reset icon "backspace" if text is input
+const nodelabel = document.querySelector("#nodeLabel_text")
 nodelabel.addEventListener("input", e => {
-  toggle_reset_icon(e.srcElement.value, nodelabel_reset)
+  toggle_reset_icon(e.srcElement.value, "nodeLabel_reset")
 })

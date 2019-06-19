@@ -40,9 +40,9 @@ server <- function(input, output, session) {
   
   onRestored(function(state) {
     removeModal()
-    update_node_options(rv$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
-    update_node_options(rv$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
-    update_node_options(rv$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
+    updateSelectInput(session, "exposureNode", selected = state$values$sel$exposureNode)
+    updateSelectInput(session, "outcomeNode", selected = state$values$sel$outcomeNode)
+    updateSelectizeInput(session, "adjustNode", selected = state$values$sel$adjustNode)
   })
   
   # ---- Reactive Values ----
@@ -194,7 +194,8 @@ server <- function(input, output, session) {
     if (length(node_list_btn_now) && any(node_list_btn_now)) {
       updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
     }
-    shinyjs::runjs("toggle_reset_icon(false, el = nodelabel_reset)")
+    shinyjs::runjs("toggle_reset_icon(false, 'nodeLabel_reset')")
+    shinyjs::runjs("set_input_focus('nodeLabel_text')")
   })
   
   output$nodeListButtonsLabel <- renderUI({

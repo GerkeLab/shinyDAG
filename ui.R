@@ -1,6 +1,5 @@
 class_3_col <- "col-md-4 col-md-offset-0 col-sm-8 col-sm-offset-2 col-xs-12"
 
-
 # UI ----------------------------------------------------------------------
 
 function(request) {
@@ -49,7 +48,6 @@ function(request) {
               )
             )
           ),
-          # br(), br(),
           prettySwitch(
             inputId = "showFlow",
             label = "Examine DAG elements",
@@ -178,7 +176,10 @@ function(request) {
           tabPanel(
             "Edit LaTeX",
             value = "edit_latex",
-            helpText("WARNING: Editing code here will only change the appearance of the DAG and not the information on paths provided."),
+            helpText(
+              "WARNING: Editing code here will only change the appearance of", 
+              "the DAG and not the information on paths provided."
+            ),
             uiOutput("texEdit"),
             actionButton("redoTex", "Initiate Editing!"),
             conditionalPanel(
@@ -197,8 +198,18 @@ function(request) {
             "About shinyDAG",
             value = "about",
             h6("Development Team: Jordan Creed, Travis Gerke, and Garrick Aden-Buie"),
-            h6("For more information on our lab and other projects please check out our website at", tags$a(href = "http://gerkelab.com", "gerkelab.com")),
-            h6("All code is available on GitHub at", tags$a(href = "https://github.com/GerkeLab/ShinyDAG", "GerkeLab/ShinyDag")),
+            h6(
+              "For more information on our lab and other projects please check",
+              "out our website at",
+              tags$a(href = "http://gerkelab.com", "gerkelab.com")
+            ),
+            h6(
+              "All code is available on GitHub at",
+              tags$a(
+                href = "https://github.com/GerkeLab/ShinyDAG",
+                "GerkeLab/ShinyDag"
+              )
+            ),
             h6(
               "Any errors or comments can be directed to",
               tags$a(href = "mailto:travis.gerke@moffitt.org", "travis.gerke@moffitt.org"),
