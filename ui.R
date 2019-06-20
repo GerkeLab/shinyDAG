@@ -157,13 +157,7 @@ function(request) {
               ),
               selected = "stealth"
             ),
-            uiOutput("curveAngle"),
-            helpText("A negative degree will change the orientation of the curve."),
-            fluidRow(
-              column(4, uiOutput("curveColor")),
-              column(4, uiOutput("curveLty")),
-              column(4, uiOutput("curveThick"))
-            )
+            uiOutput("edge_aes_ui")
           ),
           # ---- Tab: Edit LaTeX ----
           tabPanel(
