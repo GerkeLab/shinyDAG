@@ -10,17 +10,12 @@ function(request) {
     dashboardBody(
       shinyjs::useShinyjs(),
       tags$script(src = "shinydag.js", async = TRUE),
+      includeCSS("www/shinydag.css"),
       fluidRow(
         # ---- Box: DAG ----
         box(
           title = "shinyDAG",
           column(12, align = "center", uiOutput("tikzOut")),
-          # column(12, align = "center", imageOutput("tikzOut")),
-          tags$style(
-            type = "text/css",
-            "#showPreviewContainer { padding-top: 32px; }",
-            "#download-buttons { padding-top: 25px; }"
-          ),
           fluidRow(
             column(
               4,
@@ -57,13 +52,6 @@ function(request) {
           tabPanel(
             "Build",
             value = "build",
-            tags$style(
-              type = "text/css",
-              "#node_delete { margin-top: 20px; color: #FFF }",
-              "#edge_btn { margin-top: 25px; color: #FFF }",
-              "#ui_edge_swap_btn { margin-top: 25px; }",
-              "@media (min-width: 768px) { #node_delete { margin-left: -25px; } }"
-            ),
             uiOutput("nodeListButtonsLabel"),
             uiOutput("nodeListButtons"),
             fluidRow(
