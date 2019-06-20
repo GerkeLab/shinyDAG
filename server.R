@@ -32,17 +32,17 @@ server <- function(input, output, session) {
   })
   
   onRestore(function(state) {
-   showModal(modalDialog(
+    showModal(modalDialog(
       title = NULL,
       easyClose = FALSE,
       footer = NULL,
       tags$p(class = "text-center", "Loading your ShinyDag workspace, please wait.")
     ))
     if (isTRUE(getOption("shinydag.debug", FALSE))) {
-      names(state$values) %>% 
-        purrr::set_names() %>% 
-        purrr::map(~ state$values[[.]]) %>% 
-        purrr::compact() %>% 
+      names(state$values) %>%
+        purrr::set_names() %>%
+        purrr::map(~ state$values[[.]]) %>%
+        purrr::compact() %>%
         purrr::iwalk(~ debug_input(.x, paste0("state$values$", .y)))
     }
     for (var in names(rv)) {
@@ -588,19 +588,19 @@ server <- function(input, output, session) {
       mutate(hash = names(edges)) %>%
       tidyr::gather(position, node_hash, from:to)
     
-    all_edges %>% 
-      filter(hash %in% edges_in_dag(edges, nodes)) %>% 
+    all_edges %>%
+      filter(hash %in% edges_in_dag(edges, nodes)) %>%
       left_join(
         select(node_frame(nodes), hash, name),
         by = c("node_hash" = "hash")
       ) %>%
-      tidyr::gather(var, value, node_hash, name) %>% 
+      tidyr::gather(var, value, node_hash, name) %>%
       mutate(
-        var = sub("node|name", "", var), 
+        var = sub("node|name", "", var),
         var = paste0(position, var)
-      ) %>% 
-      select(-position) %>% 
-      tidyr::spread(var, value) %>% 
+      ) %>%
+      select(-position) %>%
+      tidyr::spread(var, value) %>%
       mutate(!!!dots)
   }
   
@@ -609,7 +609,7 @@ server <- function(input, output, session) {
       mutate(hash = names(edges)) %>%
       tidyr::gather(position, node_hash, from:to)
     
-    edges_not_in_graph <- all_edges %>% 
+    edges_not_in_graph <- all_edges %>%
       filter(!node_hash %in% nodes_in_dag(nodes))
     
     setdiff(all_edges$hash, edges_not_in_graph$hash)
@@ -842,7 +842,7 @@ server <- function(input, output, session) {
   #   in the definition in ui_edge_controls_row(). This function also isolates
   #   the edge control UI from other changes in nodes, etc, because they happen
   #   on different screens.
-  # 
+  #
   # * ui_edge_controls_row() creates the entire row of UI elements for a given
   #   edge. This function is where the UI inputs are initially defined.
   
@@ -1010,7 +1010,11 @@ server <- function(input, output, session) {
         nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
       ]
     nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
-    nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
+    nodeFrame$nameA <- nodeFrame$name
+    idx_node_adjusted <- which(nodeFrame$name %in% node_name_from_hash(input$adjustNode))
+    nodeFrame$nameA[idx_node_adjusted] <- as.character(
+      glue::glue(" |[module]| {nodeFrame$nameA[idx_node_adjusted]}")
+    )
     nodeLines <- vector("character", 0)
     for (i in unique(nodeFrame$y)) {
       createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\")
@@ -1184,7 +1188,11 @@ server <- function(input, output, session) {
           nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
         ]
       nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
-      nodeFrame$nameA <- ifelse(nodeFrame$name %in% input$adjustNode, paste0(" |[module]| ", nodeFrame$name), nodeFrame$name)
+      nodeFrame$nameA <- nodeFrame$name
+      idx_node_adjusted <- which(nodeFrame$name %in% node_name_from_hash(input$adjustNode))
+      nodeFrame$nameA[idx_node_adjusted] <- as.character(
+        glue::glue(" |[module]| {nodeFrame$nameA[idx_node_adjusted]}")
+      )
       nodeLines <- vector("character", 0)
       for (i in unique(nodeFrame$y)) {
         createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\\\\\")
