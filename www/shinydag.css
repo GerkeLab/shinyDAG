@@ -1,0 +1,32 @@
+#edge_aes_ui label {
+  color: #777;
+  font-weight: normal;
+}
+
+#showPreviewContainer {
+  padding-top: 32px;
+}
+
+#download-buttons {
+  padding-top: 25px;
+}
+
+#node_delete {
+  margin-top: 20px;
+  color: #FFF
+}
+
+#edge_btn {
+  margin-top: 25px;
+  color: #FFF
+}
+
+#ui_edge_swap_btn {
+  margin-top: 25px;
+}
+
+@media (min-width: 768px) {
+  #node_delete {
+    margin-left: -25px;
+  }
+}
