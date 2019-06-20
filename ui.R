@@ -29,7 +29,13 @@ function(request) {
               selectInput(
                 "downloadType",
                 "Type of download",
-                choices = list("PDF" = 4, "PNG" = 3, "LaTeX TikZ" = 2, "dagitty R object" = 1, "ggdag R object" = 5)
+                choices = list(
+                  "PDF" = 4,
+                  "PNG" = 3,
+                  "LaTeX TikZ" = 2
+                  # "dagitty R object" = 1,
+                  # "ggdag R object" = 5
+                )
               )
             ),
             column(
