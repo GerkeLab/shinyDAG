@@ -125,6 +125,10 @@ server <- function(input, output, session) {
     x[has_position]
   }
   
+  node_name_from_hash <- function(hash) {
+    invertNames(node_names(isolate(rv$nodes)))[hash]
+  }
+  
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
     nodes[[hash]]$name <- name %||% nodes[[hash]]$name
     nodes[[hash]]$x <- x %||% nodes[[hash]]$x
