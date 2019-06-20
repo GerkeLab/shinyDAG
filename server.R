@@ -32,7 +32,7 @@ server <- function(input, output, session) {
   })
   
   onRestore(function(state) {
-    showModal(modalDialog(
+   showModal(modalDialog(
       title = NULL,
       easyClose = FALSE,
       footer = NULL,
@@ -168,6 +168,12 @@ server <- function(input, output, session) {
       filter(dist <= threshold) %>%
       slice(1) %>%
       select(-dist)
+  }
+  
+  nodes_in_dag <- function(nodes) {
+    nodes %>%
+      purrr::keep(~ !is.na(.$x)) %>%
+      names()
   }
   
   # ---- Node Controls ----
@@ -573,16 +579,36 @@ server <- function(input, output, session) {
   
   edge_frame <- function(edges, nodes, ...) {
     dots <- rlang::enexprs(...)
-    bind_rows(edges) %>%
+    
+    all_edges <- bind_rows(edges) %>%
       mutate(hash = names(edges)) %>%
-      tidyr::gather(position, node_hash, from:to) %>%
+      tidyr::gather(position, node_hash, from:to)
+    
+    all_edges %>% 
+      filter(hash %in% edges_in_dag(edges, nodes)) %>% 
       left_join(
         select(node_frame(nodes), hash, name),
         by = c("node_hash" = "hash")
       ) %>%
-      select(-node_hash) %>%
-      tidyr::spread(position, name) %>%
+      tidyr::gather(var, value, node_hash, name) %>% 
+      mutate(
+        var = sub("node|name", "", var), 
+        var = paste0(position, var)
+      ) %>% 
+      select(-position) %>% 
+      tidyr::spread(var, value) %>% 
       mutate(!!!dots)
+  }
+  
+  edges_in_dag <- function(edges, nodes) {
+    all_edges <- bind_rows(edges) %>%
+      mutate(hash = names(edges)) %>%
+      tidyr::gather(position, node_hash, from:to)
+    
+    edges_not_in_graph <- all_edges %>% 
+      filter(!node_hash %in% nodes_in_dag(nodes))
+    
+    setdiff(all_edges$hash, edges_not_in_graph$hash)
   }
   
   edge_edges <- function(edges, nodes, ...) {
@@ -816,12 +842,6 @@ server <- function(input, output, session) {
   # * ui_edge_controls_row() creates the entire row of UI elements for a given
   #   edge. This function is where the UI inputs are initially defined.
   
-  ui_edge_from_to <- function(from_hash, to_hash) {
-    node_from <- invertNames(node_names(rv$nodes))[from_hash]
-    node_to <- invertNames(node_names(rv$nodes))[to_hash]
-    paste0(node_from, "&nbsp;&#8594; ", node_to)
-  }
-  
   ui_edge_controls <- function(edge_hash, inputFn, prefix_input, label, ...) {
     current_value_arg_name <- intersect(names(list(...)), c("selected", "value"))
     if (!length(current_value_arg_name)) {
@@ -848,7 +868,7 @@ server <- function(input, output, session) {
       tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
     }
     title_row <- function(x) tags$div(class = "col-xs-12", tags$h3(x))
-    edge_label <- isolate(ui_edge_from_to(from, to))
+    edge_label <- paste0(from, "&nbsp;&#8594; ", to)
     
     tagList(
       fluidRow(
@@ -901,7 +921,7 @@ server <- function(input, output, session) {
   output$edge_aes_ui <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
     req(length(isolate(rv$edges)) > 0)
-    rv_edge_frame <- purrr::map_dfr(isolate(rv$edges), ~ ., .id = "hash")
+    rv_edge_frame <- edge_frame(isolate(rv$edges), isolate(rv$nodes))
     
     tagList(
       purrr:::pmap(rv_edge_frame, ui_edge_controls_row)
@@ -973,7 +993,8 @@ server <- function(input, output, session) {
   
   edge_points_rv <- reactive({
     req(length(rv$edges) > 0)
-    edge_points(rv$edges, rv$nodes)
+    ep <- edge_points(rv$edges, rv$nodes)
+    ep[complete.cases(ep), ]
   })
   
   dag_node_lines <- function(nodeFrame) {
