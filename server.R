@@ -38,7 +38,13 @@ server <- function(input, output, session) {
       footer = NULL,
       tags$p(class = "text-center", "Loading your ShinyDag workspace, please wait.")
     ))
-    debug_input(state$values)
+    if (isTRUE(getOption("shinydag.debug", FALSE))) {
+      names(state$values) %>% 
+        purrr::set_names() %>% 
+        purrr::map(~ state$values[[.]]) %>% 
+        purrr::compact() %>% 
+        purrr::iwalk(~ debug_input(.x, paste0("state$values$", .y)))
+    }
     for (var in names(rv)) {
       rv[[var]] <- state$values$rv[[var]]
     }
