@@ -11,6 +11,7 @@ library(dplyr)
 library(ggdag)
 library(shinyWidgets)
 library(shinyjs)
+library(shinyThings)
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
