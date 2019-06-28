@@ -59,22 +59,60 @@ function(request) {
             "Build",
             value = "build",
             uiOutput("nodeListButtonsLabel"),
-            uiOutput("nodeListButtons"),
-            fluidRow(
-              column(
-                10,
-                searchInput(
-                  "nodeLabel",
-                  label = "",
-                  value = "",
-                  placeholder = NULL,
-                  btnSearch = icon("check"),
-                  btnReset = icon("plus"),
-                  width = "100%"
+            tags$div(
+              class = "btn-toolbar",
+              role = "toolbar",
+              uiOutput("nodeListButtons"),
+              # uiOutput("nodeListActions")
+              tags$div(
+                class = "btn-group",
+                role = "group",
+                tags$div(
+                  id = "node_list_actions_deselected",
+                  actionButton("node_list_node_add", "", icon("plus")),
+                  shinyjs::hidden(
+                    actionButton(
+                      "node_list_node_remove", "", icon("eraser"),
+                      alt = "Remove from DAG",
+                      `data-toggle` = "tooltip",
+                      `data-placement` = "bottom",
+                      title = "Remove from DAG")
+                  ),
+                  shinyjs::hidden(
+                    actionButton(
+                      "node_list_node_delete", "", icon("trash"),
+                      alt = "Delete Node",
+                      `data-toggle` = "tooltip",
+                      `data-placement` = "bottom",
+                      title = "Delete Node")
+                  )
                 )
-              ),
-              column(2, uiOutput("node_ui_remove"))
+              )
             ),
+            shinyjs::hidden(
+              fluidRow(
+                id = "node_list_node_name_container",
+                column(
+                  12,
+                  textInput("node_list_node_name", "", width = "100%")
+                )
+              )
+            ),
+            # fluidRow(
+            #   column(
+            #     10,
+            #     searchInput(
+            #       "nodeLabel",
+            #       label = "",
+            #       value = "",
+            #       placeholder = NULL,
+            #       btnSearch = icon("check"),
+            #       btnReset = icon("plus"),
+            #       width = "100%"
+            #     )
+            #   ),
+            #   column(2, uiOutput("node_ui_remove"))
+            # ),
             plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick"),
             fluidRow(
               column(

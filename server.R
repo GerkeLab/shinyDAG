@@ -125,8 +125,8 @@ server <- function(input, output, session) {
     x[has_position]
   }
   
-  node_name_from_hash <- function(hash) {
-    invertNames(node_names(isolate(rv$nodes)))[hash]
+  node_name_from_hash <- function(nodes, hash) {
+    invertNames(node_names(isolate(rv$nodes), all = TRUE))[hash]
   }
   
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
@@ -184,203 +184,123 @@ server <- function(input, output, session) {
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
   
-  # Add or modify node label on search button
-  observeEvent(input$nodeLabel_search, {
-    node_list_btn_now <- isolate(node_list_btn_state())
-    if (!node_name_valid(rv$nodes, input$nodeLabel, warn = !any(node_list_btn_now))) {
-      return(NULL)
-    }
-    if (!length(node_list_btn_now) || !any(node_list_btn_now)) {
-      # Node is new if a node label button is not toggled
-      new_node_hash <- digest::digest(Sys.time())
-      if (!new_node_hash %in% names(rv$nodes)) {
-        # Update node list
-        rv$nodes <- node_new(rv$nodes, new_node_hash, input$nodeLabel)
-        # Update node btn state
-        new_node_state <- setNames(TRUE, node_btn_id(new_node_hash))
-        node_list_btn_last_state <<- c(node_list_btn_last_state, new_node_state)
-        node_last_change_was_app(TRUE)
-        # Clear search input
-        updateSearchInput(session, "nodeLabel", value = "")
-      }
-    } else {
-      # Editing mode (node label button toggled)
-      s_node_list_btn <- isolate(node_list_btn_sel()) %>% node_btn_get_hash()
-      rv$nodes <- node_update(rv$nodes, s_node_list_btn, input$nodeLabel)
-    }
-    debug_input(rv$nodes, "rv$nodes")
-  })
-  
-  # Untoggle node label on reset button (also clears text as well)
-  observeEvent(input$nodeLabel_reset, {
-    node_list_btn_now <- isolate(node_list_btn_state())
-    if (length(node_list_btn_now) && any(node_list_btn_now)) {
-      updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
-    }
-    shinyjs::runjs("toggle_reset_icon(false, 'nodeLabel_reset')")
-    shinyjs::runjs("set_input_focus('nodeLabel_text')")
-  })
-  
   output$nodeListButtonsLabel <- renderUI({
     if (!length(rv$nodes)) {
       tags$p(tags$strong("Add a Node"))
-    } else if (is.null(node_list_btn_sel())) {
+    } else if (is.null(input$node_list_selected_node)) {
       tags$p(tags$strong("Add Node or Select Existing to Edit or Place"))
     } else {
       tags$p(tags$strong("Edit or Place Selected Node"))
     }
   })
   
+  
   output$nodeListButtons <- renderUI({
     req(rv$nodes)
+    node_list_buttons_redraw()
     if (!length(rv$nodes)) {
       return()
     }
-    node_list_buttons <- vector("list", length(rv$nodes))
-    for (i in seq_along(rv$nodes)) {
-      node_btn_id.this <- node_btn_id(names(rv$nodes)[i])
-      node_list_buttons[[i]] <- bsButton(
-        node_btn_id.this,
-        value = node_list_btn_last_state[node_btn_id.this],
-        label = rv$nodes[[i]]$name,
-        type = "toggle"
-      )
-    }
-    tagList(
-      tags$div(
-        class = "btn-group",
-        node_list_buttons
-        # bsButton("nodeLabelAddNew", "", icon = icon("plus"), style = "primary")
-      )
+    
+    s_node <- isolate(node_list_newest_node()) %||% input$node_list_selected_node
+    
+    buttonGroup(
+      "node_list_selected_node",
+      choices = node_names(rv$nodes, all = TRUE),
+      multiple = FALSE,
+      selected = s_node
     )
   })
   
-  # Handle new node button triggered
-  observeEvent(input$nodeLabelAddNew, {
-    node_list_btn_now <- node_list_btn_state()
-    if (length(node_list_btn_now) && any(node_list_btn_now)) {
-      updateButton(session, isolate(node_list_btn_sel()), value = FALSE)
-    }
+  node_list_buttons_redraw <- reactiveVal(Sys.time())
+  node_list_newest_node <- reactiveVal(NULL)
+  
+  # Handle add node button, creates new node and sets focus
+  observeEvent(input$node_list_node_add, {
+    new_node_hash <- digest::digest(Sys.time())
+    rv$nodes <- node_new(rv$nodes, new_node_hash, "new node")
+    node_list_buttons_redraw(Sys.time())
+    node_list_newest_node(new_node_hash)
+    updateTextInput(session, "node_list_node_name", value = "", placeholder = "Enter Node Name")
+    shinyjs::show("node_list_node_name_container")
+    shinyjs::runjs("set_input_focus('node_list_node_name')")
   })
   
-  # Disable new node button if in "add node" state
-  observe({
-    node_list_btn_now <- node_list_btn_sel()
-    shinyjs::toggleState("nodeLabelAddNew", condition = !is.null(node_list_btn_now))
-  })
-  
-  # Current state of the node buttons, zero-length if no nodes yet
-  node_list_btn_state <- reactive({
-    node_list_input_ids <- grep("node_toggle", names(input), value = TRUE, fixed = TRUE)
-    vapply(node_list_input_ids, function(n) input[[n]] %||% FALSE, FALSE)
-  })
-  
-  # ID of currently toggled button (otherwise NULL)
-  node_list_btn_sel <- reactive({
-    if (is.null(node_list_btn_state())) {
-      NULL
-    } else if (any(node_list_btn_state()) && sum(node_list_btn_state()) == 1) {
-      names(node_list_btn_state())[node_list_btn_state()]
-    } else {
-      NULL
-    }
-  })
-  
-  node_last_change_was_app <- reactiveVal(TRUE)
-  
-  # Only one node toggled at a time
-  observe({
-    req(length(node_list_btn_state()) > 0)
-    debug_input(isolate(node_last_change_was_app()), "node_last_change_was_app()")
-    debug_input(node_list_btn_last_state, "node_list_btn_last_state")
-    debug_input(node_list_btn_state(), "node_list_btn_state()")
+  observeEvent(input$node_list_selected_node, {
+    if (is.null(input$node_list_selected_node)) {
+      shinyjs::hide("node_list_node_name_container")
+      return()
+    } 
     
-    if (isolate(node_last_change_was_app())) {
-      # The app manually updated the button state, do nothing
-      node_last_change_was_app(FALSE)
+    if (!is.null(node_list_newest_node()) && 
+        node_list_newest_node() == input$node_list_selected_node) {
+      # A new node was recently selected, and was handled above
+      return()
+    }
+    
+    # Selected node already exists, update UI
+    node_list_newest_node(NULL)
+    shinyjs::show("node_list_node_name_container")
+    s_node_name <- node_name_from_hash(isolate(rv$nodes), input$node_list_selected_node)
+    updateTextInput(
+      session, 
+      "node_list_node_name", 
+      value = unname(s_node_name)
+    )
+  }, priority = 1000)
+  
+  # Name of currently selected node
+  # node_list_name <- reactive({
+  #   req(input$node_list_node_name, input$node_list_selected_node)
+  #   input$node_list_node_name
+  # })
+  
+  # Handle node name text input
+  observeEvent(input$node_list_node_name, {
+    # node_name_debounced <- debounce(node_list_name, 500)
+    # debug_input(node_label_debounced(), "node_label_debounced")
+    req(input$node_list_selected_node, input$node_list_node_name != "")
+    rv$nodes <- node_update(rv$nodes, input$node_list_selected_node, input$node_list_node_name)
+  }, priority = -1000)
+  
+  # Show editing buttons when appropriate
+  observe({
+    I("toggle edit buttons")
+    if (is.null(input$node_list_selected_node)) {
+      # no node selected, can only add a new node
+      shinyjs::hide("node_list_node_remove")
+      shinyjs::hide("node_list_node_delete")
     } else {
-      # Use node_list_btn_last_state to determine which button was changed by user
-      # Last toggled button wins, all others turned off
-      node_list_btn_state_now <- node_list_btn_state()[names(node_list_btn_last_state)]
-      button_changed <- which(node_list_btn_state_now != node_list_btn_last_state)
-      if (length(button_changed) && sum(node_list_btn_state_now) > 1) {
-        button_turn_off <- setdiff(which(node_list_btn_state_now), button_changed)
-        for (i in button_turn_off) {
-          debug_line("Updating: ", names(node_list_btn_state_now)[i])
-          updateButton(session, names(node_list_btn_state_now)[i], value = FALSE)
-          node_last_change_was_app(TRUE)
-        }
+      if (input$node_list_selected_node %in% nodes_in_dag(rv$nodes)) {
+        # if the node is in the DAG it can be removed
+        shinyjs::show("node_list_node_remove")
+        shinyjs::hide("node_list_node_delete")
+      } else {
+        # if it's not in the DAG it can be deleted
+        shinyjs::hide("node_list_node_remove")
+        shinyjs::show("node_list_node_delete")
       }
     }
-    node_list_btn_last_state <<- vapply(
-      names(node_list_btn_last_state),
-      function(n) input[[n]] %||% FALSE,
-      FALSE
-    )
-  }, priority = -10)
-  
-  # Selecting existing node label button enables editing
-  observe({
-    req(node_list_btn_sel())
-    s_node_list_btn_id <- node_list_btn_sel() %>% node_btn_get_hash()
-    s_node_name <- isolate(rv$nodes[[s_node_list_btn_id]]$name)
-    updateSearchInput(session, "nodeLabel", value = unname(s_node_name), label = "")
   })
   
-  # Selecting existing node label enables node delete button
-  output$node_ui_remove <- renderUI({
-    req(node_list_btn_sel())
-    if (node_btn_sel_has_point()) {
-      actionButton(
-        "node_delete",
-        "",
-        icon = icon("eraser"),
-        class = "btn-warning",
-        alt = "Remove Node from DAG",
-        `data-toggle` = "tooltip",
-        `data-placement` = "bottom",
-        title = "Remove Node from DAG"
-      )
-    } else {
-      actionButton(
-        "node_delete",
-        "",
-        icon = icon("trash"),
-        class = "btn-danger",
-        alt = "Delete Node",
-        `data-toggle` = "tooltip",
-        `data-placement` = "bottom",
-        title = "Delete Node"
-      )
-    }
+  # Action: remove node from DAG
+  observeEvent(input$node_list_node_remove, {
+    rv$nodes <- node_update(rv$nodes, input$node_list_selected_node, x = NA, y = NA)
   })
   
-  # Erase or delete button?
-  node_btn_sel_has_point <- reactive({
-    req(node_list_btn_sel())
-    node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    !is.null(rv$nodes[[node_btn_hash]]) && !is.na(rv$nodes[[node_btn_hash]]$x)
-  })
-  
-  # Delete node
-  observeEvent(input$node_delete, {
-    s_node_btn_hash <- node_btn_get_hash(node_list_btn_sel())
-    if (node_btn_sel_has_point()) {
-      rv$nodes <- node_update(rv$nodes, s_node_btn_hash, x = NA, y = NA)
-    } else {
-      rv$nodes <- node_delete(rv$nodes, s_node_btn_hash)
-      updateButton(session, node_list_btn_sel(), value = FALSE)
-    }
-    shinyjs::runjs("$('#node_delete').tooltip('hide')")
-    debug_input(rv$nodes, "rv$nodes")
-    debug_input(node_list_btn_state(), "node_list_btn_state()")
-  })
-  
-  # Clear nodeLabel input when no node buttons selected
-  observe({
-    req(!any(node_list_btn_state()))
-    # Clear node input
-    updateSearchInput(session, "nodeLabel", value = "", label = "")
+  # Action: delete node
+  observeEvent(input$node_list_node_delete, {
+    # Remove node
+    rv$nodes[[input$node_list_selected_node]] <- NULL
+    
+    # Remove any edges
+    edges_with_node <- rv$edges %>% 
+      purrr::keep(~ input$node_list_selected_node %in% c(.$from, .$to)) %>% 
+      names()
+    
+    if (length(edges_with_node)) rv$edges[edges_with_node] <- NULL
+    
+    shinyjs::hide("node_list_node_name_container")
   })
   
   # ---- Click Pad ----
@@ -415,7 +335,7 @@ server <- function(input, output, session) {
       return()
     }
     
-    if (is.null(node_list_btn_sel())) {
+    if (is.null(input$node_list_selected_node)) {
       # No active node
       warnNotification("Please double click to select a node")
       return()
@@ -429,7 +349,7 @@ server <- function(input, output, session) {
     }
     
     # Single Click on Space: Move Active Node
-    node_hash <- node_btn_get_hash(node_list_btn_sel())
+    node_hash <- node_btn_get_hash(input$node_list_selected_node)
     
     if (isTRUE(is.na(rv$nodes[[node_hash]]$x))) {
       # Set flag for edge UI updater to make this node the parent node
@@ -453,21 +373,21 @@ server <- function(input, output, session) {
     }
     
     nearest_node <- node_nearest(rv$nodes, input$pad_dblclick)
-    if (is.null(node_list_btn_sel())) {
+    if (is.null(input$node_list_selected_node)) {
       # No node currently active
       if (nrow(nearest_node)) {
         # Activate Node
-        toggle_node_btn_state(nearest_node$hash)
+        updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
         # Set parent node
         updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
       }
     } else if (nrow(nearest_node)) {
       # Another node is already active
-      s_node_btn <- node_list_btn_sel()
+      s_node_btn <- input$node_list_selected_node
       toggle_node_btn_state(s_node_btn, state = FALSE)
       if (!identical(nearest_node$hash, s_node_btn %>% node_btn_get_hash())) {
         # Activate New Node
-        toggle_node_btn_state(nearest_node$hash)
+        updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
         updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
       }
     }
@@ -479,7 +399,7 @@ server <- function(input, output, session) {
     rv_pts <- node_frame(rv$nodes)
     
     if (nrow(rv_pts)) {
-      active_node <- node_btn_get_hash(node_list_btn_sel())
+      active_node <- node_btn_get_hash(input$node_list_selected_node)
       if (!length(active_node)) active_node <- ""
       rv_pts <- mutate(
         rv_pts,
@@ -621,16 +541,19 @@ server <- function(input, output, session) {
   
   edge_points <- function(edges, nodes, push_by = 0) {
     e_df <- edge_frame(edges, nodes)
+    n_df <- node_frame(nodes)
     
-    e_df %>%
-      select(hash, from, to) %>%
-      tidyr::gather(key, name, -hash) %>%
-      left_join(node_frame(nodes)[, -1], by = "name") %>%
-      tidyr::gather(var, pt, x:y) %>%
-      mutate(var = paste(key, var, sep = ".")) %>%
-      select(-name, -key) %>%
-      tidyr::spread(var, pt) %>%
-      left_join(e_df, by = "hash") %>%
+    e_df %>% 
+      left_join(
+        n_df %>% purrr::set_names(paste0("from_", names(n_df))), 
+        by = "from_hash"
+      ) %>% 
+      left_join(
+        n_df %>% purrr::set_names(paste0("to_", names(n_df))), 
+        by = "to_hash"
+      ) %>%
+      # TODO refactor rest of app to use from_x, etc. and remove line below
+      rename(from.x = from_x, from.y = from_y, to.x = to_x, to.y = to_y) %>% 
       mutate(
         d_x = to.x - from.x,
         d_y = to.y - from.y,
@@ -1011,7 +934,7 @@ server <- function(input, output, session) {
       ]
     nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
     nodeFrame$nameA <- nodeFrame$name
-    idx_node_adjusted <- which(nodeFrame$name %in% node_name_from_hash(input$adjustNode))
+    idx_node_adjusted <- which(nodeFrame$hash %in% input$adjustNode)
     nodeFrame$nameA[idx_node_adjusted] <- as.character(
       glue::glue(" |[module]| {nodeFrame$nameA[idx_node_adjusted]}")
     )
@@ -1039,7 +962,7 @@ server <- function(input, output, session) {
       
       nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
         left_join(
-          nodeFrame %>% select(x, y, name),
+          nodeFrame,
           by = c("x", "y")
         ) %>%
         dag_node_lines()
