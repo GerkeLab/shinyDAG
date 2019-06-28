@@ -76,7 +76,7 @@ function(request) {
             #   ),
             #   column(2, uiOutput("node_ui_remove"))
             # ),
-            plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick"),
+            plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", height = "600px", width = "100%"),
             fluidRow(
               tags$div(
                 class = "col-xs-9 col-sm-6 col-sm-offset-2 col-md-4 col-md-offset-0",

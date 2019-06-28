@@ -14,8 +14,19 @@ const set_input_focus = (id) => {
   }
 }
 
-// Watch #nodeLabel input and make reset icon "backspace" if text is input
-const nodelabel = document.querySelector("#nodeLabel_text")
-nodelabel.addEventListener("input", e => {
-  toggle_reset_icon(e.srcElement.value, "nodeLabel_reset")
-})
+const append_edge_selector_hint = () => {
+  var helper_from = document.createElement("span");
+  helper_from.innerHTML = "&#x25fc;";
+  helper_from.className = "edge-selector-hint-from";
+  
+  var helper_to = document.createElement("span");
+  helper_to.innerHTML = "&#x2b24;";
+  helper_to.className = "edge-selector-hint-to";
+  
+  $("label[for='from_edge-selectized']").after(helper_from);
+  $("label[for='to_edge-selectized']").after(helper_to);
+}
+
+$( document ).ready(function() {
+  setTimeout(append_edge_selector_hint, 1000);
+});

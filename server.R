@@ -11,6 +11,8 @@ server <- function(input, output, session) {
   message("Using session tempdir: ", SESSION_TEMPDIR)
   
   # ---- Bookmarking ----
+  setBookmarkExclude(c("node_list_node_delete", "node_list_node_erase", "node_list_node_add"))
+  
   onBookmark(function(state) {
     state$values$rv <- list()
     for (var in names(rv)) {
@@ -404,16 +406,32 @@ server <- function(input, output, session) {
       rv_pts <- mutate(
         rv_pts,
         color = case_when(
-          hash == active_node & hash == input$from_edge ~ "purple3",
-          hash == active_node & hash == input$to_edge ~ "darkorange3",
+          # hash == active_node & hash == input$from_edge ~ "purple3",
+          # hash == active_node & hash == input$to_edge ~ "darkorange3",
           hash == active_node ~ "firebrick3",
-          hash == input$from_edge ~ "steelblue3",
-          hash == input$to_edge ~ "goldenrod3",
+          # hash == input$from_edge ~ "steelblue3",
+          # hash == input$to_edge ~ "goldenrod3",
           TRUE ~ "black"
         )
       )
       plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
       grid()
+      # highlight from/to edge nodes
+      if (input$from_edge != "") {
+        edge_from_node <- rv_pts %>% filter(hash == input$from_edge)
+        with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 22, col = NA))
+      }
+      if (input$to_edge != "") {
+        edge_to_node <- rv_pts %>% filter(hash == input$to_edge)
+        with(edge_to_node, points(x, y, bg = "grey94", cex = 12, pch = 21, col = NA))
+      }
+      if (!is.null(input$adjustNode) && input$adjustNode != "") {
+        pts_adjust_node <- rv_pts %>% filter(hash %in% input$adjustNode)
+        for (i in seq_along(pts_adjust_node)) {
+          with(pts_adjust_node[i, ], points(x, y, col = "grey25", cex = 12, pch = 22))
+        }
+      }
+      # add arrows
       if (length(rv$edges)) {
         e_pts <- edge_points(rv$edges, rv$nodes, push_by = 0.05)
         for (i in seq_len(nrow(e_pts))) {
@@ -428,12 +446,13 @@ server <- function(input, output, session) {
           )
         }
       }
+      # add text labels
       text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
     } else {
       plot(NA, NA, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
       grid()
     }
-  })
+  }, height = 600)
   
   # ---- Node - Options ----
   update_node_options <- function(
