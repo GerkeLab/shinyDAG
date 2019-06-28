@@ -12,47 +12,10 @@ function(request) {
       tags$script(src = "shinydag.js", async = TRUE),
       includeCSS("www/shinydag.css"),
       fluidRow(
-        # ---- Box: DAG ----
-        box(
-          title = "shinyDAG",
-          column(12, align = "center", uiOutput("tikzOut")),
-          fluidRow(
-            column(
-              4,
-              tags$div(
-                id = "showPreviewContainer",
-                prettySwitch("showPreview", "Preview DAG", status = "primary", fill = TRUE)
-              )
-            ),
-            column(
-              4,
-              selectInput(
-                "downloadType",
-                "Type of download",
-                choices = list(
-                  "PDF" = 4,
-                  "PNG" = 3,
-                  "LaTeX TikZ" = 2
-                  # "dagitty R object" = 1,
-                  # "ggdag R object" = 5
-                )
-              )
-            ),
-            column(
-              4,
-              div(
-                class = "btn-group",
-                role = "group",
-                id = "download-buttons",
-                downloadButton("downloadButton"),
-                bookmarkButton()
-              )
-            )
-          )
-        ),
-        # ---- Box: Controls ----
-        tabBox(
+        
+        tabBox(# ---- Box: Controls ----
           title = div(img(src = "GerkeLab.png", width = 40, height = 40)),
+          width = "12 col-md-push-6 col-md-6 col-lg-7 col-lg-push-5",
           id = "tab_control",
           # ---- Tab: Build ----
           tabPanel(
@@ -115,8 +78,8 @@ function(request) {
             # ),
             plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick"),
             fluidRow(
-              column(
-                width = 5,
+              tags$div(
+                class = "col-xs-9 col-sm-6 col-sm-offset-2 col-md-4 col-md-offset-0",
                 selectizeInput(
                   "from_edge",
                   "Parent Node",
@@ -124,12 +87,12 @@ function(request) {
                   choices = c("Add a node to the plot area" = "")
                 )
               ),
-              column(
-                width = 1,
+              tags$div(
+                class = "col-xs-3 col-md-2",
                 actionButton("ui_edge_swap_btn", "", icon("exchange-alt"))
               ),
-              column(
-                width = 5,
+              tags$div(
+                class = "col-xs-9 col-sm-6 col-sm-offset-2 col-md-4 col-md-offset-0",
                 selectizeInput(
                   "to_edge",
                   "Child Node",
@@ -137,8 +100,8 @@ function(request) {
                   choices = c("Add a node to the plot area" = "")
                 )
               ),
-              column(
-                width = 1,
+              tags$div(
+                class = "col-xs-3 col-md-2",
                 uiOutput("ui_edge_btn")
               )
             ),
@@ -236,7 +199,46 @@ function(request) {
               tags$a(href = "mailto:jordan.h.creed@moffitt.org", "jordan.h.creed@moffitt.org")
             )
           )
-        )
+        ), # Controls Box Ends ----
+        
+        box( # ---- Box: DAG ----
+          title = "shinyDAG",
+          width = "12 col-md-pull-6 col-md-6  col-lg-5 col-lg-pull-7",
+          column(12, align = "center", uiOutput("tikzOut")),
+          fluidRow(
+            tags$div(
+              class = class_3_col,
+              tags$div(
+                id = "showPreviewContainer",
+                prettySwitch("showPreview", "Preview DAG", status = "primary", fill = TRUE)
+              )
+            ),
+            tags$div(
+              class = class_3_col,
+              selectInput(
+                "downloadType",
+                "Type of download",
+                choices = list(
+                  "PDF" = 4,
+                  "PNG" = 3,
+                  "LaTeX TikZ" = 2
+                  # "dagitty R object" = 1,
+                  # "ggdag R object" = 5
+                )
+              )
+            ),
+            tags$div(
+              class = class_3_col,
+              div(
+                class = "btn-group",
+                role = "group",
+                id = "download-buttons",
+                downloadButton("downloadButton"),
+                bookmarkButton()
+              )
+            )
+          )
+        ) # DAG box ends ----
       )
     )
   )
