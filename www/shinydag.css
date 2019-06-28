@@ -30,3 +30,17 @@
     margin-left: -25px;
   }
 }
+
+.edge-selector-hint-from {
+  color: #aaa;
+  font-size: 28px;
+  line-height: 14px;
+  padding-left: 4px;
+}
+
+.edge-selector-hint-to {
+  color: #aaa;
+  font-size: 13px;
+  vertical-align: top;
+  padding-left: 5px;
+}
