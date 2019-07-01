@@ -49,3 +49,13 @@
   padding-top: 0;
   font-style: italic;
 }
+
+.btn-text {
+  padding-left: 5px;
+}
+
+@media (min-width: 992px) and (max-width: 1825px) {
+  .btn-text {
+    display: none;
+  }
+}
