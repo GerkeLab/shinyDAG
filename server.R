@@ -1032,65 +1032,91 @@ server <- function(input, output, session) {
     writeLines(x, out_file)
   }
   
+  make_graph <- function(nodes, edges) {
+    g <- make_empty_graph()
+    if (nrow(node_frame(nodes))) {
+      g <- g + node_vertices(nodes)
+    }
+    if (length(edges)) {
+      # Add edges
+      g <- g + edge_edges(edges, nodes)
+    }
+    g
+  }
+  
+  make_dagitty <- function(nodes, edges, exposure = NULL, outcome = NULL, adjusted = NULL) {
+    dagitty_edges <- edge_frame(edges, nodes) %>% 
+      glue::glue_data("{from} -> {to}") %>% 
+      paste(collapse = "; ")
+    
+    gdag <- dagitty(glue::glue("dag {{ {dagitty_edges} }}"))
+    
+    if (isTruthy(exposure)) exposures(gdag) <- exposure
+    if (isTruthy(outcome))  outcomes(gdag) <- outcome
+    if (isTruthy(adjusted)) adjustedNodes(gdag) <- adjusted
+    
+    gdag
+  }
+  
+  output$downloadType_helptext <- renderUI({
+    is_tikz_download <- input$downloadType %in% c("pdf", "png", "tikz")
+    if (is_tikz_download && !input$showPreview) {
+      shinyjs::disable("downloadButton")
+      return(helpText("Please preview DAG to enable downloads"))
+    }
+    
+    if (!is_tikz_download && !nrow(edge_frame(rv$edges, rv$nodes))) {
+      shinyjs::disable("downloadButton")
+      return(helpText("Please add at least one edge to the DAG"))
+    }
+      
+    shinyjs::enable("downloadButton")
+  })
+  
   output$downloadButton <- downloadHandler(
     filename = function() {
       paste0(
-        "DAG",
-        Sys.Date(),
-        ifelse(
-          input$downloadType == 1,
-          ".RData",
-          ifelse(
-            input$downloadType == 2,
-            ".tex",
-            ifelse(
-              input$downloadType == 3,
-              ".png",
-              ifelse(input$downloadType == 5, ".RData", ".pdf")
-            )
-          )
+        "DAG.", 
+        switch(
+          input$downloadType,
+          "dagitty" =,
+          "ggdag" = "rds",
+          "tikz" = "tex",
+          "png" = "png",
+          "pdf" = "pdf"
         )
       )
     },
     content = function(file) {
-      if (input$downloadType == 1) {
-        daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-        daggityCode1 <- paste(daggityCode1, collapse = ";")
-        daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-
-        g2 <- dagitty(daggityCode2)
-
-        exposures(g2) <- input$exposureNode
-        outcomes(g2) <- input$outcomeNode
-        adjustedNodes(g2) <- input$adjustNode
-
-        dagitty_code <- g2
-        save(dagitty_code, file = file)
-      } else if (input$downloadType == 2) {
+      if (input$downloadType == "pdf") {
+        
+        file.copy(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"), file)
+        
+      } else if (input$downloadType == "png") {
+        
+        file.copy(file.path(SESSION_TEMPDIR, "DAGimage.png"), file)
+      
+      } else if (input$downloadType == "tikz") {
+        
         merge_tex_files(
           file.path(SESSION_TEMPDIR, "DAGimageDoc.tex"),
           file.path(SESSION_TEMPDIR, "DAGimage.tex"),
           file
         )
-      } else if (input$downloadType == 3) {
-        myfile <- file.path(SESSION_TEMPDIR, "DAGimage.png")
-        file.copy(myfile, file)
-      } else if (input$downloadType == 5) {
-        daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
-        daggityCode1 <- paste(daggityCode1, collapse = ";")
-        daggityCode2 <- paste0("dag { ", daggityCode1, " }")
         
-        g2 <- dagitty(daggityCode2)
+      } else if (input$downloadType == "dagitty") {
         
-        exposures(g2) <- input$exposureNode
-        outcomes(g2) <- input$outcomeNode
-        adjustedNodes(g2) <- input$adjustNode
+        gdag <- make_dagitty(rv$nodes, rv$edges, input$exposureNode, input$outcomeNode, input$adjustNode)
         
-        tidy_dag <- tidy_dagitty(g2)
-        save(tidy_dag, file = file)
-      } else {
-        myfile <- file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf")
-        file.copy(myfile, file)
+        saveRDS(gdag, file = file)
+        
+      } else if (input$downloadType == "ggdag") {
+        
+        tidy_dag <- 
+          make_dagitty(rv$nodes, rv$edges, input$exposureNode, input$outcomeNode, input$adjustNode) %>% 
+          tidy_dagitty()
+        
+        saveRDS(tidy_dag, file = file)
       }
     },
     contentType = NA
