@@ -402,7 +402,7 @@ server <- function(input, output, session) {
       # highlight from/to edge nodes
       if (input$from_edge != "") {
         edge_from_node <- rv_pts %>% filter(hash == input$from_edge)
-        with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 22, col = NA))
+        with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 24, col = NA))
       }
       if (input$to_edge != "") {
         edge_to_node <- rv_pts %>% filter(hash == input$to_edge)
@@ -1192,5 +1192,5 @@ server <- function(input, output, session) {
     }
     aceEditor("manual_tikz", mode = "latex", value = paste(tikz_lines, collapse = "\n"), theme = "cobalt")
   })
-  
+
 }
