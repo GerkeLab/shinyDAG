@@ -215,7 +215,7 @@ function(request) {
                 role = "group",
                 id = "download-buttons",
                 downloadButton("downloadButton"),
-                bookmarkButton()
+                bookmarkButton(label = "Bookmark")
               )
             )
           )
