@@ -13,6 +13,7 @@ function(request) {
       includeCSS("www/AdminLTE.gerkelab.min.css"),
       includeCSS("www/_all-skins.gerkelab.min.css"),
       includeCSS("www/shinydag.css"),
+      chooseSliderSkin("Flat", "#418c7a"),
       fluidRow(
         
         tabBox(# ---- Box: Controls ----
