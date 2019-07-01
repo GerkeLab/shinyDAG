@@ -950,74 +950,108 @@ server <- function(input, output, session) {
     paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
   }
   
-  # Re-render TeX preview
-  observe({
-    req(rv$nodes, input$showPreview)
+  tikz_code <- reactive({
+    req(rv$nodes, input$showPreview || input$tab_control == "edit_latex")
     nodeFrame <- node_frame(rv$nodes)
+    req(nrow(nodeFrame) > 0)
     
-    if (nrow(nodeFrame)) {
-      styleZ <- "\\tikzset{ module/.style={draw, rectangle},
+    styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
-      startZ <- "\\begin{tikzpicture}[>=latex]"
-      endZ <- "\\end{tikzpicture}"
-      pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
+    startZ <- "\\begin{tikzpicture}[>=latex]"
+    endZ <- "\\end{tikzpicture}"
+    pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
+    
+    nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
+      left_join(
+        nodeFrame,
+        by = c("x", "y")
+      ) %>%
+      dag_node_lines()
+    
+    edgeLines <- character()
+    
+    if (length(rv$edges)) {
+      # edge_points_rv() is a reactive that gathers values from aesthetics UI
+      # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
+      edgePts <- debounce(edge_points_rv, 5000)()
       
-      nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
-        left_join(
-          nodeFrame,
-          by = c("x", "y")
-        ) %>%
-        dag_node_lines()
-      
-      edgeLines <- character()
-      
-      if (length(rv$edges)) {
-        # edge_points_rv() is a reactive that gathers values from aesthetics UI
-        # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
-        edgePts <- debounce(edge_points_rv, 5000)()
-        
-        tikz_point <- function(x, y, x_min, y_max) {
-          glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
-        }
-        
-        edgePts <- edgePts %>%
-          mutate(
-            x_min = min(from.x, to.x),
-            y_max = max(from.y, to.y),
-            parent = tikz_point(from.x, from.y, x_min, y_max),
-            child = tikz_point(to.x, to.y, x_min, y_max),
-            edgeLine = glue::glue(
-              "{parent} edge [>={input$arrowShape}, bend left = {edgePts$angle}, ",
-              "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"
-            )
-          )
-        
-        debug_input(select(edgePts, hash, matches("^(from|to)"), parent, child, edgeLine), "edgeLines")
-        edgeLines <- edgePts$edgeLine
+      tikz_point <- function(x, y, x_min, y_max) {
+        glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
       }
       
-      edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
+      edgePts <- edgePts %>%
+        mutate(
+          x_min = min(from.x, to.x),
+          y_max = max(from.y, to.y),
+          parent = tikz_point(from.x, from.y, x_min, y_max),
+          child = tikz_point(to.x, to.y, x_min, y_max),
+          edgeLine = glue::glue(
+            "{parent} edge [>={input$arrowShape}, bend left = {edgePts$angle}, ",
+            "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"
+          )
+        )
       
-      tikzLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
-      tikzLines <- paste(tikzLines, collapse = "")
-      
-      useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-      
-      pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-      
-      texPreview(
-        obj = tikzLines,
-        stem = "DAGimage",
-        fileDir = SESSION_TEMPDIR,
-        imgFormat = "png",
-        returnType = "shiny",
-        density = tex_opts$get("density"),
-        keep_pdf = TRUE,
-        usrPackages = pkgs,
-        margin = tex_opts$get("margin"),
-        cleanup = tex_opts$get("cleanup")
-      )
+      debug_input(select(edgePts, hash, matches("^(from|to)"), parent, child, edgeLine), "edgeLines")
+      edgeLines <- edgePts$edgeLine
     }
+    
+    edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
+    
+    paste(c(styleZ, startZ, nodeLines, edgeLines, endZ), collapse = "\n")
+  })
+  
+  which_tex_preview <- reactive({
+    has_main_app_code <- !is.null(tikz_code())
+    on_manual_tikz_tab <- input$tab_control == "edit_latex"
+    has_manual_tikz_init <- isTruthy(input$manual_tikz)
+    
+    if (!has_main_app_code && !on_manual_tikz_tab) {
+      "none"
+    } else if (on_manual_tikz_tab && has_manual_tikz_init) {
+      "manual"
+    } else {
+      "app"
+    }
+  })
+  
+  has_touched_manual <- FALSE
+  output$showPreview_helptext <- renderUI({
+    tex_showing <- which_tex_preview()
+    if (tex_showing == "manual") {
+      has_touched_manual <<- TRUE
+      helpText("Previewing manually entered TikZ TeX")
+    } else if (has_touched_manual && tex_showing == "app") {
+      helpText("Previewing shinyDAG TikZ TeX")
+    }
+  })
+  
+  # Re-render TeX preview
+  observe({
+    req(input$showPreview)
+    
+    tikz_lines <- switch(
+      which_tex_preview(),
+      "manual" = input$manual_tikz,
+      "app" = tikz_code(),
+      return(invisible())
+    )
+    
+    useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
+    
+    pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
+    
+    texPreview(
+      obj = tikz_lines,
+      stem = "DAGimage",
+      fileDir = SESSION_TEMPDIR,
+      imgFormat = "png",
+      returnType = "shiny",
+      density = tex_opts$get("density"),
+      keep_pdf = TRUE,
+      usrPackages = pkgs,
+      margin = tex_opts$get("margin"),
+      cleanup = tex_opts$get("cleanup")
+    )
     tikzUpdateOutput(!isolate(tikzUpdateOutput()))
   }, priority = -100)
   
@@ -1124,158 +1158,15 @@ server <- function(input, output, session) {
   
   # ---- TeX Editor ----
   output$texEdit <- renderUI({
-    if (length(V(rv$g)$name) >= 1) {
-      styleZ <- "\\\\tikzset{ module/.style={draw, rectangle},
-      label/.style={ } }"
-      startZ <- "\\\\begin{tikzpicture}[>=latex]"
-      endZ <- "\\\\end{tikzpicture}"
-      pathZ <- "\\\\path[->,font=\\\\scriptsize,>=angle 90]"
-      
-      nodeFrame <- rv$pts2
-      nodeFrame <- nodeFrame[
-        nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-          nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-          nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
-          nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
-        ]
-      nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
-      nodeFrame$nameA <- nodeFrame$name
-      idx_node_adjusted <- which(nodeFrame$name %in% node_name_from_hash(input$adjustNode))
-      nodeFrame$nameA[idx_node_adjusted] <- as.character(
-        glue::glue(" |[module]| {nodeFrame$nameA[idx_node_adjusted]}")
-      )
-      nodeLines <- vector("character", 0)
-      for (i in unique(nodeFrame$y)) {
-        createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\\\\\")
-        nodeLines <- c(nodeLines, createLines)
-      }
-      nodeLines <- rev(nodeLines)
-      nodeLines2 <- nodeLines
-      
-      nodeLines <- paste0("\\\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
-      
-      edgeLines <- vector("character", 0)
-      
-      if (length(E(rv$g)) >= 1) {
-        edgeFrame <- as.data.frame(ends(rv$g, E(rv$g)))
-        edgeFrame$name <- paste0(edgeFrame$V1, "->", edgeFrame$V2)
-        edgeFrame$angle <- edgeFrame$color <- edgeFrame$thick <- edgeFrame$type <- edgeFrame$loose <- NA
-        edgeFrame$parent <- edgeFrame$child <- NA
-        
-        nodeFrame$revY <- rev(nodeFrame$y)
-        
-        for (i in 1:length(edgeFrame$name)) {
-          edgeFrame$angle[i] <- ifelse(!is.null(input[[paste0("angle", edgeFrame$name[i])]]), as.numeric(input[[paste0("angle", edgeFrame$name[i])]]), 0)
-          edgeFrame$color[i] <- ifelse(is.null(input[[paste0("color", edgeFrame$name[i])]]), "black", input[[paste0("color", edgeFrame$name[i])]])
-          edgeFrame$thick[i] <- ifelse(is.null(input[[paste0("lineT", edgeFrame$name[i])]]), "thin", input[[paste0("lineT", edgeFrame$name[i])]])
-          edgeFrame$type[i] <- ifelse(is.null(input[[paste0("lty", edgeFrame$name[i])]]), "solid", input[[paste0("lty", edgeFrame$name[i])]])
-          edgeFrame$parent[i] <- paste0(
-            "(m-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$revY - min(nodeFrame$revY) + 1),
-            "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V1[i], ]$x - min(nodeFrame$x) + 1),
-            ")"
-          )
-          edgeFrame$child[i] <- paste0(
-            "(m-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$revY - min(nodeFrame$revY) + 1),
-            "-",
-            (nodeFrame[nodeFrame$name == edgeFrame$V2[i], ]$x - min(nodeFrame$x) + 1),
-            ")"
-          )
-          createEdge <- paste0(
-            edgeFrame$parent[i],
-            " edge [>=",
-            input$arrowShape,
-            ", bend left = ",
-            edgeFrame$angle[i],
-            ", color = ",
-            edgeFrame$color[i],
-            ",",
-            edgeFrame$type[i],
-            ",",
-            edgeFrame$thick[i],
-            "] node[auto] {$~$} ",
-            edgeFrame$child[i],
-            " "
-          )
-          edgeLines <- c(edgeLines, createEdge)
-        }
-      }
-      
-      edgeLines <- paste0(pathZ, paste(edgeLines, collapse = ""), ";")
-      
-      allLines <- c(styleZ, startZ, nodeLines, edgeLines, endZ)
-      
-      tikzTemp <- paste(allLines, collapse = "")
+    tikz_lines <- tikz_code()
+    
+    if (is.null(tikz_lines)) {
+      tikz_lines <- "\\\\begin{tikzpicture}[>=latex]\n\\\\end{tikzpicture}"
     } else {
-      startZ <- "\\\\begin{tikzpicture}[>=latex]"
-      endZ <- "\\\\end{tikzpicture}"
-      
-      allLines <- c(startZ, endZ)
-      
-      tikzTemp <- paste(allLines, collapse = "")
+      # double escape backslashes
+      tikz_lines <- gsub("\\", "\\\\", tikz_lines, fixed = TRUE)
     }
-    aceEditor("texChange", mode = "latex", value = paste(allLines, collapse = "\n"), theme = "cobalt")
+    aceEditor("manual_tikz", mode = "latex", value = paste(tikz_lines, collapse = "\n"), theme = "cobalt")
   })
   
-  output$tikzOutNew <- renderUI({
-    tikzTemp <- input$texChange
-    
-    useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-    
-    pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-    
-    texPreview(
-      obj = tikzTemp,
-      stem = "DAGimageEdit",
-      fileDir = SESSION_TEMPDIR,
-      imgFormat = "png",
-      returnType = "shiny",
-      density = tex_opts$get("density"),
-      keep_pdf = TRUE,
-      usrPackages = pkgs,
-      margin = tex_opts$get("margin"),
-      cleanup = tex_opts$get("cleanup")
-    )
-    
-    session_id <- sub("www/", "", SESSION_TEMPDIR, fixed = TRUE)
-    
-    return(tags$iframe(
-      style = "height:560px; width:100%",
-      src = file.path(session_id, "DAGimageEditDoc.pdf"),
-      scrolling = "no",
-      seamless = "seamless"
-    ))
-  })
-  
-  output$downloadButton2 <- downloadHandler(
-    filename = function() {
-      paste0(
-        "DAG",
-        Sys.Date(),
-        ifelse(
-          input$downloadType2 == 1,
-          ".tex",
-          ifelse(input$downloadType2 == 2, ".png", ".pdf")
-        )
-      )
-    },
-    content = function(file) {
-      if (input$downloadType2 == 1) {
-        merge_tex_files(
-          file.path(SESSION_TEMPDIR, "DAGimageEditDoc.tex"),
-          file.path(SESSION_TEMPDIR, "DAGimageEdit.tex"),
-          file
-        )
-      } else if (input$downloadType2 == 2) {
-        myfile <- file.path(SESSION_TEMPDIR, "DAGimageEdit.png")
-        file.copy(myfile, file)
-      } else {
-        myfile <- file.path(SESSION_TEMPDIR, "DAGimageEditDoc.pdf")
-        file.copy(myfile, file)
-      }
-    },
-    contentType = NA
-  )
 }
