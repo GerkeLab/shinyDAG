@@ -750,14 +750,9 @@ server <- function(input, output, session) {
   
   # ---- Edit Aesthetics ----
   
-  # A fancy selectizeInput for angles
-  selectDegree <- function(inputId, label = "Degree", min = -180 + by, max = 180, by = 45, value = 0, ...) {
-    if (sign(min + (max - min)) != sign(by)) {
-      by <- -by
-    }
-    choices <- seq(min, max, by)
-    
-    selectizeInput(inputId, label = label, choices, selected = value, multiple = FALSE, ..., )
+  # The input for angles (here for easy refactoring or future changes)
+  selectDegree <- function(inputId, label = "Degree", min = -180, max = 180, by = 15, value = 0, ...) {
+    sliderInput(inputId, label = label, min = min, max = max, value = value, step = by)
   }
   
   # These helper functions build up the Edge UI elements.
