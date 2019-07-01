@@ -61,21 +61,6 @@ function(request) {
                 )
               )
             ),
-            # fluidRow(
-            #   column(
-            #     10,
-            #     searchInput(
-            #       "nodeLabel",
-            #       label = "",
-            #       value = "",
-            #       placeholder = NULL,
-            #       btnSearch = icon("check"),
-            #       btnReset = icon("plus"),
-            #       width = "100%"
-            #     )
-            #   ),
-            #   column(2, uiOutput("node_ui_remove"))
-            # ),
             plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", height = "600px", width = "100%"),
             fluidRow(
               tags$div(
