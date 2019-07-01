@@ -204,13 +204,14 @@ function(request) {
                 "downloadType",
                 "Type of download",
                 choices = list(
-                  "PDF" = 4,
-                  "PNG" = 3,
-                  "LaTeX TikZ" = 2
-                  # "dagitty R object" = 1,
-                  # "ggdag R object" = 5
+                  "PDF" = "pdf",
+                  "PNG" = "png",
+                  "LaTeX TikZ" = "tikz",
+                  "dagitty (R: RDS)" = "dagitty",
+                  "ggdag (R: RDS)" = "ggdag"
                 )
-              )
+              ),
+              uiOutput("downloadType_helptext")
             ),
             tags$div(
               class = class_3_col,
