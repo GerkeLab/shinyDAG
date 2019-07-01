@@ -10,6 +10,8 @@ function(request) {
     dashboardBody(
       shinyjs::useShinyjs(),
       tags$script(src = "shinydag.js", async = TRUE),
+      includeCSS("www/AdminLTE.gerkelab.min.css"),
+      includeCSS("www/_all-skins.gerkelab.min.css"),
       includeCSS("www/shinydag.css"),
       fluidRow(
         

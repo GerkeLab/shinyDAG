@@ -1,3 +1,18 @@
+@import url('https://fonts.googleapis.com/css?family=Lato:300,400,400i,700,700i');
+
+body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
+  font-family: Lato, sans-serif;
+}
+
+.wrapper {
+  min-height: 100vh !important;
+  height: 100% !important;
+  background-color: #f0f0f0 !important;
+}
+.content-wrapper {
+  height: 100%;
+}
+
 #edge_aes_ui label {
   color: #777;
   font-weight: normal;
