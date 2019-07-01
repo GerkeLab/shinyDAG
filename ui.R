@@ -182,8 +182,22 @@ function(request) {
         
         box( # ---- Box: DAG ----
           title = "shinyDAG",
-          width = "12 col-md-pull-6 col-md-6  col-lg-5 col-lg-pull-7",
-          column(12, align = "center", uiOutput("tikzOut")),
+          width = "12 col-md-pull-6 col-md-6 col-lg-5 col-lg-pull-7",
+          column(
+            width = 12, 
+            align = "center", 
+            shinyjs::hidden(tags$div(
+              id = "tikzOut-help",
+              class="alert alert-danger",
+              role="alert",
+              HTML(
+                "<p>An error occurred while compiling the preview.",
+                "Are there syntax errors in your labels?",
+                "Single <code>$</code> need to be escaped: <code>\\$</code>.</p>"
+              )
+            )),
+            uiOutput("tikzOut")
+          ),
           fluidRow(
             tags$div(
               class = class_3_col,
