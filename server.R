@@ -62,8 +62,8 @@ server <- function(input, output, session) {
   
   # ---- Reactive Values ----
   rv <- reactiveValues(
-    g = make_empty_graph(),
-    gg = make_empty_graph(),
+    # g = make_empty_graph(),
+    # gg = make_empty_graph(),
     edges = list(),
     nodes = list(),
     pts = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
@@ -77,24 +77,7 @@ server <- function(input, output, session) {
   
   # rv$nodes is a named list where name is a hash
   # rv$nodes$abcdefg = list(name, x, y)
-  
-  # rv$gg rebuilds whenever nodes or edges (or options?) change
-  observe({
-    req(length(rv$nodes))
-    # debug_line("Rebuilding graph")
-    g <- make_empty_graph()
-    if (nrow(node_frame(rv$nodes))) {
-      g <- g + node_vertices(rv$nodes)
-    }
-    if (length(rv$edges)) {
-      # Add edges
-      g <- g + edge_edges(rv$edges, rv$nodes)
-    }
-    
-    rv$gg <- g
-    debug_input(rv$gg, "rv$gg")
-  })
-  
+
   # ---- Node Helper Functions ----
   node_new <- function(nodes, hash, name) {
     nodes[[hash]] <- list(name = name, x = NA, y = NA)
@@ -1074,13 +1057,13 @@ server <- function(input, output, session) {
         daggityCode1 <- paste0(ends(rv$g, E(rv$g))[, 1], "->", ends(rv$g, E(rv$g))[, 2])
         daggityCode1 <- paste(daggityCode1, collapse = ";")
         daggityCode2 <- paste0("dag { ", daggityCode1, " }")
-        
+
         g2 <- dagitty(daggityCode2)
-        
+
         exposures(g2) <- input$exposureNode
         outcomes(g2) <- input$outcomeNode
         adjustedNodes(g2) <- input$adjustNode
-        
+
         dagitty_code <- g2
         save(dagitty_code, file = file)
       } else if (input$downloadType == 2) {
