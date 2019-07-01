@@ -1190,7 +1190,14 @@ server <- function(input, output, session) {
       # double escape backslashes
       tikz_lines <- gsub("\\", "\\\\", tikz_lines, fixed = TRUE)
     }
-    aceEditor("manual_tikz", mode = "latex", value = paste(tikz_lines, collapse = "\n"), theme = "cobalt")
+    aceEditor(
+      "manual_tikz", 
+      mode = "latex", 
+      value = paste(tikz_lines, collapse = "\n"), 
+      theme = "chrome",
+      wordWrap = TRUE, 
+      highlightActiveLine = TRUE
+    )
   })
 
 }
