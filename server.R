@@ -882,25 +882,18 @@ server <- function(input, output, session) {
   }, priority = -50)
   
   # ---- Render DAG ----
-  # output$tikzOut <- renderUI({
-  #   tikzUpdateOutput()
-  #   if (!file.exists(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"))) return(NULL)
-  #
-  #   serve_file_path <- file.path(sub("www/", "", SESSION_TEMPDIR, fixed = TRUE), "DAGimageDoc.pdf")
-  #
-  #   tags$iframe(
-  #     style = "height:600px; width:100%",
-  #     src = serve_file_path,
-  #     scrolling = "auto",
-  #     zoom = if (length(V(rv$g)$name) < 1) 300,
-  #     seamless = "seamless"
-  #   )
-  # })
-  
   output$tikzOut <- renderUI({
     req(length(rv$nodes), input$showPreview)
-    tikzUpdateOutput()
-    image_path <- file.path(SESSION_TEMPDIR, "DAGimage.png")
+    
+    if (is.null(tikz_cache_dir())) return()
+    if (!length(tikz_cache_dir())) {
+      shinyjs::show("tikzOut-help")
+      return()
+    } else {
+      shinyjs::hide("tikzOut-help")
+    }
+    
+    image_path <- file.path(tikz_cache_dir(), "DAGimage.png")
     if (!file.exists(image_path)) {
       debug_line("Image does not exist: ", image_path)
       return()
@@ -917,8 +910,6 @@ server <- function(input, output, session) {
       alt = "DAG"
     )
   })
-  
-  tikzUpdateOutput <- reactiveVal(TRUE) # Triggers PDF update when value changes
   
   edge_points_rv <- reactive({
     req(length(rv$edges) > 0)
@@ -1025,6 +1016,8 @@ server <- function(input, output, session) {
     }
   })
   
+  tikz_cache_dir <- reactiveVal(NULL)
+  
   # Re-render TeX preview
   observe({
     req(input$showPreview)
@@ -1040,10 +1033,10 @@ server <- function(input, output, session) {
     
     pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
     
-    texPreview(
+    preview_dir <- tex_cached_preview(
+      session_dir = SESSION_TEMPDIR,
       obj = tikz_lines,
       stem = "DAGimage",
-      fileDir = SESSION_TEMPDIR,
       imgFormat = "png",
       returnType = "shiny",
       density = tex_opts$get("density"),
@@ -1052,8 +1045,34 @@ server <- function(input, output, session) {
       margin = tex_opts$get("margin"),
       cleanup = tex_opts$get("cleanup")
     )
-    tikzUpdateOutput(!isolate(tikzUpdateOutput()))
+    tikz_cache_dir(preview_dir)
   }, priority = -100)
+  
+  tex_cached_preview <- function(session_dir, ...) {
+    # Takes arguments for texPreview() except for fileDir
+    # hashes inputs and then writes preview into session_dir/args_hash
+    # Skips rendering if the cache already exists
+    # Returns directory containing the preview documents
+    
+    args <- list(...)
+    args_hash <- digest::digest(args)
+    
+    cache_dir <- file.path(session_dir, args_hash)
+    
+    if (dir.exists(cache_dir)) {
+      return(cache_dir)
+    }
+    
+    dir.create(cache_dir, recursive = TRUE)
+    args$fileDir <- cache_dir
+    tryCatch({
+      do.call("texPreview", args)
+      cache_dir
+    }, error = function(e) {
+      unlink(cache_dir, recursive = TRUE)
+      character()
+    })
+  }
   
   # ---- Download Files ----
   # Merge tikz TeX source into main TeX file
@@ -1103,6 +1122,11 @@ server <- function(input, output, session) {
       shinyjs::disable("downloadButton")
       return(helpText("Please add at least one edge to the DAG"))
     }
+    
+    if (!length(tikz_cache_dir())) {
+      shinyjs::disable("downloadButton")
+      return()
+    }
       
     shinyjs::enable("downloadButton")
   })
@@ -1124,17 +1148,17 @@ server <- function(input, output, session) {
     content = function(file) {
       if (input$downloadType == "pdf") {
         
-        file.copy(file.path(SESSION_TEMPDIR, "DAGimageDoc.pdf"), file)
+        file.copy(file.path(tikz_cache_dir(), "DAGimageDoc.pdf"), file)
         
       } else if (input$downloadType == "png") {
         
-        file.copy(file.path(SESSION_TEMPDIR, "DAGimage.png"), file)
+        file.copy(file.path(tikz_cache_dir(), "DAGimage.png"), file)
       
       } else if (input$downloadType == "tikz") {
         
         merge_tex_files(
-          file.path(SESSION_TEMPDIR, "DAGimageDoc.tex"),
-          file.path(SESSION_TEMPDIR, "DAGimage.tex"),
+          file.path(tikz_cache_dir(), "DAGimageDoc.tex"),
+          file.path(tikz_cache_dir(), "DAGimage.tex"),
           file
         )
         
