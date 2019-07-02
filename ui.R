@@ -5,7 +5,28 @@ class_3_col <- "col-md-4 col-md-offset-0 col-sm-8 col-sm-offset-2 col-xs-12"
 function(request) {
   dashboardPage(
     title = "shinyDAG",
-    dashboardHeader(disable = TRUE),
+    skin = "black",
+    dashboardHeader(
+      title = "shinyDAG",
+      tags$li(
+        class = "dropdown",
+        tags$a(
+          href = "https://github.com/gerkelab/shinyDAG/",
+          title = "shinyDAG on GitHub",
+          target = "_blank",
+          icon("github")
+        )
+      ),
+      tags$li(
+        class = "dropdown",
+        tags$a(
+          href = "https://gerkelab.com/project/shinyDAG/",
+          title = "GerkeLab Project Page",
+          target = "_blank",
+          icon("flask")
+        )
+      )
+    ),
     dashboardSidebar(disable = TRUE),
     dashboardBody(
       shinyjs::useShinyjs(),
@@ -14,10 +35,14 @@ function(request) {
       includeCSS("www/_all-skins.gerkelab.min.css"),
       includeCSS("www/shinydag.css"),
       chooseSliderSkin("Flat", "#418c7a"),
+      tags$a(
+        href = "https://gerkelab.com", 
+        target = "_blank", 
+        tags$div(class = "gerkelab-logo")
+      ),
       fluidRow(
-        
         tabBox(# ---- Box: Controls ----
-          title = div(img(src = "GerkeLab.png", width = 40, height = 40)),
+          title = "Edit DAG",
           width = "12 col-md-push-6 col-md-6 col-lg-7 col-lg-push-5",
           id = "tab_control",
           # ---- Tab: Build ----
@@ -184,7 +209,7 @@ function(request) {
         ), # Controls Box Ends ----
         
         box( # ---- Box: DAG ----
-          title = "shinyDAG",
+          title = "Preview DAG",
           width = "12 col-md-pull-6 col-md-6 col-lg-5 col-lg-pull-7",
           column(
             width = 12, 
