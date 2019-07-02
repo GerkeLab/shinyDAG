@@ -75,7 +75,7 @@ RUN install2.r --error tinytex \
 RUN install2.r --error --deps TRUE shinyjs \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
-RUN installGithub.r gadenbuie/shinyThings@btn-group \
+RUN installGithub.r gadenbuie/shinyThings@1bf490cc16453c24c31521fd4db63036efb245d5 \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 ARG SHINY_APP_IDLE_TIMEOUT=600
