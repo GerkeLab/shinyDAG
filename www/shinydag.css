@@ -1,7 +1,21 @@
 @import url('https://fonts.googleapis.com/css?family=Lato:300,400,400i,700,700i');
 
+/* ---- GerkeLab Admin LTE Theme Tweaks ---- */
 body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   font-family: Lato, sans-serif;
+}
+
+.main-header > .logo {
+  color: #989898 !important;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.main-header {
+  position: fixed;
+  width: 100%;
+  box-shadow: 0 3px 3px rgba(0,0,0,0.1) !important;
+  -webkit-box-shadow: 0 3px 3px rgba(0,0,0,0.1) !important;
 }
 
 .wrapper {
@@ -12,6 +26,43 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
 .content-wrapper {
   height: 100%;
 }
+
+@media (max-width:767px) {
+  .content-wrapper {
+    padding-top: 100px;
+  }
+}
+@media (min-width:768px) {
+  .content-wrapper {
+    padding-top: 50px;
+  }
+}
+
+.skin-black .main-header .navbar .navbar-custom-menu .navbar-nav > li > a,
+.skin-black .main-header .navbar .navbar-right > li > a {
+  border-left: none;
+}
+
+.gerkelab-logo {
+  background: url("GerkeLab.png");
+  background-size: contain;
+  width: 100px;
+  height: 100px;
+  position: absolute;
+  bottom: 1%;
+  right: 1%;
+  z-index: 1000;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.2));
+  transition-duration: 0.25s;
+}
+
+.gerkelab-logo:hover {
+  transition-property: filter;
+  transition-duration: 0.25s;
+  filter: drop-shadow(0 0 1px rgba(0,0,0,0.2));
+}
+
+/* ---- ShinyDAG specific tweaks ---- */
 
 #edge_aes_ui label {
   color: #777;
