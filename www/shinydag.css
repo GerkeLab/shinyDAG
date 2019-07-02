@@ -109,6 +109,21 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   font-style: italic;
 }
 
+.help-block.text-warning {
+  color: #db8b0b;
+  background-color: #db8b0b20;
+}
+
+.help-block.text-danger {
+  color: #d33724;
+  background-color: #d3372420;
+}
+
+#edge_list_helptext .help-block, #node_list_helptext .help-block {
+  padding: 0.5em;
+  border-radius: 3px;
+}
+
 .btn-text {
   padding-left: 5px;
 }
@@ -161,5 +176,48 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
     }
     to {
         transform:rotate(-360deg);
+    }
+}
+
+.alert-edge {
+  animation: fadeout 5s;
+  -moz-animation: fadeout 5s;
+  -webkit-animation: fadeout 5s;
+  -o-animation: fadeout 5s;
+}
+
+@keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@-moz-keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@-webkit-keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
     }
 }

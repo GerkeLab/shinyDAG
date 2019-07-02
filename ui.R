@@ -60,7 +60,15 @@ function(request) {
                 role = "group",
                 tags$div(
                   id = "node_list_actions_deselected",
-                  actionButton("node_list_node_add", "", icon("plus")),
+                  actionButton(
+                    input = "node_list_node_add", 
+                    label = "", 
+                    icon = icon("plus"),
+                    alt = "Create New Node in Workspace",
+                    `data-toggle` = "tooltip",
+                    `data-placement` = "bottom",
+                    title = "Create New Node in Workspace"
+                  ),
                   shinyjs::hidden(
                     actionButton(
                       "node_list_node_remove", "", icon("eraser"),
@@ -89,7 +97,15 @@ function(request) {
                 )
               )
             ),
-            plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", height = "600px", width = "100%"),
+            fluidRow(column(width = 12, uiOutput("node_list_helptext"))),
+            fluidRow(
+              column(
+                width = 12,
+                plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", 
+                           height = "600px", width = "100%")
+              )
+            ),
+            fluidRow(column(width = 12, uiOutput("edge_list_helptext"))),
             fluidRow(
               tags$div(
                 class = "col-xs-9 col-sm-6 col-sm-offset-2 col-md-4 col-md-offset-0",
