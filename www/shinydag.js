@@ -100,3 +100,15 @@ $(document).on("shiny:value", () => {
 $("#node_list_node_name").blur(() => { 
   $("#nodeListButtons button").prop("disabled", false);
 });
+
+// Animate logo when app is busy
+var app_busy_timeout;
+$(document).on("shiny:busy", e => { 
+  app_busy_timeout = setTimeout(() => {
+    $(".gerkelab-logo").addClass("gerkelab-spinner"); 
+  }, 500);
+});
+$(document).on("shiny:idle", e => { 
+  clearTimeout(app_busy_timeout);
+  $(".gerkelab-logo").removeClass("gerkelab-spinner"); 
+});
