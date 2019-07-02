@@ -14,11 +14,10 @@ server <- function(input, output, session) {
   setBookmarkExclude(c("node_list_node_delete", "node_list_node_erase", "node_list_node_add"))
   
   onBookmark(function(state) {
-    state$values$rv <- list()
-    for (var in names(rv)) {
-      state$values$rv[[var]] <- rv[[var]]
-    }
-    state$values$node_list_btn_last_state <- node_list_btn_last_state
+    state$values$rvn <- list()
+    state$values$rvn$nodes <- rvn$nodes
+    state$values$rve <- list()
+    state$values$rve$edges <- rve$edges
     
     # Store outcome/exposure/adjust node selections
     state$values$sel <- list(
@@ -48,10 +47,8 @@ server <- function(input, output, session) {
         purrr::compact() %>%
         purrr::iwalk(~ debug_input(.x, paste0("state$values$", .y)))
     }
-    for (var in names(rv)) {
-      rv[[var]] <- state$values$rv[[var]]
-    }
-    node_list_btn_last_state <<- state$values$node_list_btn_last_state
+    rvn$nodes <- state$values$rvn$nodes
+    rve$edges <- state$values$rve$edges
   })
   
   onRestored(function(state) {
@@ -62,22 +59,15 @@ server <- function(input, output, session) {
   })
   
   # ---- Reactive Values ----
-  rv <- reactiveValues(
-    # g = make_empty_graph(),
-    # gg = make_empty_graph(),
-    edges = list(),
-    nodes = list(),
-    pts = list(x = vector("numeric", 0), y = vector("numeric", 0), name = vector("character", 0)),
-    pts2 = tibble(x = rep(1:7, each = 7), y = rep(1:7, 7), name = rep(NA, 49))
-  )
+  rve <- reactiveValues(edges = list())
+  rvn <- reactiveValues(nodes = list())
   
-  node_list_btn_last_state <- c()
   
-  # rv$edges is a named list, e.g. for hash(A) -> hash(B):
-  # rv$edges[edge_key(hash(A), hash(B))] = list(from = hash(A), to = hash(B))
+  # rve$edges is a named list, e.g. for hash(A) -> hash(B):
+  # rve$edges[edge_key(hash(A), hash(B))] = list(from = hash(A), to = hash(B))
   
-  # rv$nodes is a named list where name is a hash
-  # rv$nodes$abcdefg = list(name, x, y)
+  # rvn$nodes is a named list where name is a hash
+  # rvn$nodes$abcdefg = list(name, x, y)
 
   # ---- Node Helper Functions ----
   node_new <- function(nodes, hash, name) {
@@ -112,7 +102,7 @@ server <- function(input, output, session) {
   }
   
   node_name_from_hash <- function(nodes, hash) {
-    invertNames(node_names(isolate(rv$nodes), all = TRUE))[hash]
+    invertNames(node_names(isolate(nodes), all = TRUE))[hash]
   }
   
   node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
@@ -171,7 +161,7 @@ server <- function(input, output, session) {
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
   
   output$nodeListButtonsLabel <- renderUI({
-    if (!length(rv$nodes)) {
+    if (!length(rvn$nodes)) {
       tags$p(tags$strong("Add a Node"))
     } else if (is.null(input$node_list_selected_node)) {
       tags$p(tags$strong("Add Node or Select Existing to Edit or Place"))
@@ -182,9 +172,9 @@ server <- function(input, output, session) {
   
   
   output$nodeListButtons <- renderUI({
-    req(rv$nodes)
+    req(rvn$nodes)
     node_list_buttons_redraw()
-    if (!length(rv$nodes)) {
+    if (!length(rvn$nodes)) {
       return()
     }
     
@@ -192,7 +182,7 @@ server <- function(input, output, session) {
     
     buttonGroup(
       "node_list_selected_node",
-      choices = node_names(rv$nodes, all = TRUE),
+      choices = node_names(rvn$nodes, all = TRUE),
       multiple = FALSE,
       selected = s_node
     )
@@ -204,7 +194,7 @@ server <- function(input, output, session) {
   # Handle add node button, creates new node and sets focus
   observeEvent(input$node_list_node_add, {
     new_node_hash <- digest::digest(Sys.time())
-    rv$nodes <- node_new(rv$nodes, new_node_hash, "new node")
+    rvn$nodes <- node_new(rvn$nodes, new_node_hash, "new node")
     node_list_buttons_redraw(Sys.time())
     node_list_newest_node(new_node_hash)
     updateTextInput(session, "node_list_node_name", value = "", placeholder = "Enter Node Name")
@@ -227,7 +217,7 @@ server <- function(input, output, session) {
     # Selected node already exists, update UI
     node_list_newest_node(NULL)
     shinyjs::show("node_list_node_name_container")
-    s_node_name <- node_name_from_hash(isolate(rv$nodes), input$node_list_selected_node)
+    s_node_name <- node_name_from_hash(isolate(rvn$nodes), input$node_list_selected_node)
     updateTextInput(
       session, 
       "node_list_node_name", 
@@ -246,7 +236,7 @@ server <- function(input, output, session) {
     # node_name_debounced <- debounce(node_list_name, 500)
     # debug_input(node_label_debounced(), "node_label_debounced")
     req(input$node_list_selected_node, input$node_list_node_name != "")
-    rv$nodes <- node_update(rv$nodes, input$node_list_selected_node, input$node_list_node_name)
+    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node, input$node_list_node_name)
   }, priority = -1000)
   
   # Show editing buttons when appropriate
@@ -257,7 +247,7 @@ server <- function(input, output, session) {
       shinyjs::hide("node_list_node_remove")
       shinyjs::hide("node_list_node_delete")
     } else {
-      if (input$node_list_selected_node %in% nodes_in_dag(rv$nodes)) {
+      if (input$node_list_selected_node %in% nodes_in_dag(rvn$nodes)) {
         # if the node is in the DAG it can be removed
         shinyjs::show("node_list_node_remove")
         shinyjs::hide("node_list_node_delete")
@@ -271,27 +261,27 @@ server <- function(input, output, session) {
   
   # Action: remove node from DAG
   observeEvent(input$node_list_node_remove, {
-    rv$nodes <- node_update(rv$nodes, input$node_list_selected_node, x = NA, y = NA)
+    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node, x = NA, y = NA)
   })
   
   # Action: delete node
   observeEvent(input$node_list_node_delete, {
     # Remove node
-    rv$nodes[[input$node_list_selected_node]] <- NULL
+    rvn$nodes[[input$node_list_selected_node]] <- NULL
     
     # Remove any edges
-    edges_with_node <- rv$edges %>% 
+    edges_with_node <- rve$edges %>% 
       purrr::keep(~ input$node_list_selected_node %in% c(.$from, .$to)) %>% 
       names()
     
-    if (length(edges_with_node)) rv$edges[edges_with_node] <- NULL
+    if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
     
     shinyjs::hide("node_list_node_name_container")
   })
   
   # ---- Click Pad ----
   req_nodes <- function() {
-    if (!length(rv$nodes)) {
+    if (!length(rvn$nodes)) {
       warnNotification("Please add a node")
       FALSE
     }
@@ -328,7 +318,7 @@ server <- function(input, output, session) {
     }
     
     # Single Click on Node: Set Child Node
-    nearest_node <- node_nearest(rv$nodes, input$pad_click)
+    nearest_node <- node_nearest(rvn$nodes, input$pad_click)
     if (nrow(nearest_node)) {
       updateSelectizeInput(session, "to_edge", selected = nearest_node$hash)
       return()
@@ -337,19 +327,19 @@ server <- function(input, output, session) {
     # Single Click on Space: Move Active Node
     node_hash <- node_btn_get_hash(input$node_list_selected_node)
     
-    if (isTRUE(is.na(rv$nodes[[node_hash]]$x))) {
+    if (isTRUE(is.na(rvn$nodes[[node_hash]]$x))) {
       # Set flag for edge UI updater to make this node the parent node
-      rv$nodes[[node_hash]]$new_to_dag <- TRUE
+      rvn$nodes[[node_hash]]$new_to_dag <- TRUE
     }
     
-    rv$nodes <- node_update(
-      rv$nodes,
+    rvn$nodes <- node_update(
+      rvn$nodes,
       node_hash,
       x = round(input$pad_click$x),
       y = round(input$pad_click$y)
     )
     
-    debug_input(rv$nodes, "rv$nodes")
+    debug_input(rvn$nodes, "rvn$nodes")
   })
   
   # Double Click Handler
@@ -358,7 +348,7 @@ server <- function(input, output, session) {
       return()
     }
     
-    nearest_node <- node_nearest(rv$nodes, input$pad_dblclick)
+    nearest_node <- node_nearest(rvn$nodes, input$pad_dblclick)
     if (is.null(input$node_list_selected_node)) {
       # No node currently active
       if (nrow(nearest_node)) {
@@ -381,8 +371,8 @@ server <- function(input, output, session) {
   
   # clickPad display
   output$clickPad <- renderPlot({
-    req(rv$nodes)
-    rv_pts <- node_frame(rv$nodes)
+    req(rvn$nodes)
+    rv_pts <- node_frame(rvn$nodes)
     
     if (nrow(rv_pts)) {
       active_node <- node_btn_get_hash(input$node_list_selected_node)
@@ -416,8 +406,8 @@ server <- function(input, output, session) {
         }
       }
       # add arrows
-      if (length(rv$edges)) {
-        e_pts <- edge_points(rv$edges, rv$nodes, push_by = 0.05)
+      if (length(rve$edges)) {
+        e_pts <- edge_points(rve$edges, rvn$nodes, push_by = 0.05)
         for (i in seq_len(nrow(e_pts))) {
           arrows(
             e_pts$from.x[i],
@@ -469,9 +459,9 @@ server <- function(input, output, session) {
   }
   
   observe({
-    update_node_options(rv$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
-    update_node_options(rv$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
-    update_node_options(rv$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
+    update_node_options(rvn$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
+    update_node_options(rvn$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
+    update_node_options(rvn$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
   })
   
   observeEvent(input$exposureNode, {
@@ -571,9 +561,9 @@ server <- function(input, output, session) {
   
   observe({
     # This observer exists to isolate parent/child node selection from
-    # spurious changes in rv$nodes, i.e. to ensure that changes are propagated
+    # spurious changes in rvn$nodes, i.e. to ensure that changes are propagated
     # only when the node name choices change
-    choices <- node_names(rv$nodes)
+    choices <- node_names(rvn$nodes)
     debug_input(choices, "choices")
     if (!identical(isolate(node_choices()), choices)) {
       node_choices(choices)
@@ -586,10 +576,10 @@ server <- function(input, output, session) {
     if (length(node_choices())) {
       
       # Force new node to be selected as parent node
-      nodes_is_new <- purrr::map_lgl(rv$nodes, ~ "new_to_dag" %in% names(.))
+      nodes_is_new <- purrr::map_lgl(rvn$nodes, ~ "new_to_dag" %in% names(.))
       if (any(nodes_is_new)) {
         from_edge <- names(nodes_is_new[nodes_is_new])
-        rv$nodes[[from_edge]]$new_to_dag <- NULL # remove flag
+        rvn$nodes[[from_edge]]$new_to_dag <- NULL # remove flag
       } else {
         from_edge <- input$from_edge
       }
@@ -624,12 +614,12 @@ server <- function(input, output, session) {
     }
     
     this_edge_key <- edge_key(input$from_edge, input$to_edge)
-    if (this_edge_key %in% names(rv$edges)) {
+    if (this_edge_key %in% names(rve$edges)) {
       # Remove edge
-      rv$edges <- rv$edges[setdiff(names(rv$edges), this_edge_key)]
+      rve$edges <- rve$edges[setdiff(names(rve$edges), this_edge_key)]
     } else {
       # Add edge
-      rv$edges[[this_edge_key]] <- list(
+      rve$edges[[this_edge_key]] <- list(
         from = input$from_edge,
         to = input$to_edge,
         color = "black",
@@ -638,7 +628,7 @@ server <- function(input, output, session) {
         lty = "solid"
       )
     }
-    debug_input(rv$edges, "rv$edges")
+    debug_input(rve$edges, "rve$edges")
   })
   
   output$ui_edge_btn <- renderUI({
@@ -649,7 +639,7 @@ server <- function(input, output, session) {
     if (input$from_edge == "" || input$to_edge == "") {
       # Disabled button
       actionButton("edge_btn", "", icon = icon("plus"), class = "disabled")
-    } else if (this_edge_key %in% names(rv$edges)) {
+    } else if (this_edge_key %in% names(rve$edges)) {
       # Remove edge button
       actionButton("edge_btn", "", icon = icon("minus"), class = "btn-danger")
     } else {
@@ -674,8 +664,8 @@ server <- function(input, output, session) {
   
   # ---- DAG Diagnostics ----
   g_dagitty <- reactive({
-    req(length(rv$edges) > 0)
-    edges <- edge_frame(rv$edges, rv$nodes)
+    req(length(rve$edges) > 0)
+    edges <- edge_frame(rve$edges, rvn$nodes)
     dagitty_paths <- edges %>%
       glue::glue_data("{from}->{to};") %>%
       glue::glue_collapse()
@@ -694,7 +684,7 @@ server <- function(input, output, session) {
   }
   
   dagitty_open_exp_outcome_paths <- reactive({
-    req(rv$edges)
+    req(rve$edges)
     
     # need both exposure and outcome node
     requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
@@ -706,10 +696,10 @@ server <- function(input, output, session) {
       )
     )
     
-    nodes <- invertNames(node_names(rv$nodes))
+    nodes <- invertNames(node_names(rvn$nodes))
     gd <- g_dagitty() %>%
       dagitty_apply(
-        rv$nodes,
+        rvn$nodes,
         exposures = input$exposureNode,
         outcomes = input$outcomeNode,
         adjusted = input$adjustNode
@@ -733,7 +723,7 @@ server <- function(input, output, session) {
   }
   
   output$openExpOutcomePaths <- renderUI({
-    validate(need(length(rv$edges) > 0, "Please add at least one edge"))
+    validate(need(length(rve$edges) > 0, "Please add at least one edge"))
     
     open_paths <- dagitty_open_exp_outcome_paths()
     
@@ -845,18 +835,18 @@ server <- function(input, output, session) {
   # Create the edge aesthetics control UI, only updated when tab is activated
   output$edge_aes_ui <- renderUI({
     req(input$tab_control == "edit_edge_aesthetics")
-    req(length(isolate(rv$edges)) > 0)
-    rv_edge_frame <- edge_frame(isolate(rv$edges), isolate(rv$nodes))
+    req(length(isolate(rve$edges)) > 0)
+    rv_edge_frame <- edge_frame(isolate(rve$edges), isolate(rvn$nodes))
     
     tagList(
       purrr:::pmap(rv_edge_frame, ui_edge_controls_row)
     )
   })
   
-  # Watch edge UI inputs and update rv$edges when inputs change
+  # Watch edge UI inputs and update rve$edges when inputs change
   observe({
-    req(length(rv$edges) > 0, grepl("^angle_", names(input)))
-    rv_edges <- rv$edges
+    req(length(rve$edges) > 0, grepl("^angle_", names(input)))
+    rv_edges <- rve$edges
     edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
     ) %>%
@@ -871,15 +861,15 @@ server <- function(input, output, session) {
       if (!edge$hash %in% names(rv_edges)) next
       this_edge <- edge[setdiff(names(edge), "hash")]
       for (prop in names(this_edge)) {
-        rv$edges[[edge$hash]][[prop]] <- this_edge[[prop]]
+        rve$edges[[edge$hash]][[prop]] <- this_edge[[prop]]
       }
     }
-    debug_input(rv_edges, "rv$edges after aes update")
+    debug_input(rv_edges, "rve$edges after aes update")
   }, priority = -50)
   
   # ---- Render DAG ----
   output$tikzOut <- renderUI({
-    req(length(rv$nodes), input$showPreview)
+    req(length(rvn$nodes), input$showPreview)
     
     if (is.null(tikz_cache_dir())) return()
     if (!length(tikz_cache_dir())) {
@@ -908,8 +898,8 @@ server <- function(input, output, session) {
   })
   
   edge_points_rv <- reactive({
-    req(length(rv$edges) > 0)
-    ep <- edge_points(rv$edges, rv$nodes)
+    req(length(rve$edges) > 0)
+    ep <- edge_points(rve$edges, rvn$nodes)
     ep[complete.cases(ep), ]
   })
   
@@ -938,8 +928,8 @@ server <- function(input, output, session) {
   }
   
   tikz_code <- reactive({
-    req(rv$nodes, input$showPreview || input$tab_control == "edit_latex")
-    nodeFrame <- node_frame(rv$nodes)
+    req(rvn$nodes, input$showPreview || input$tab_control == "edit_latex")
+    nodeFrame <- node_frame(rvn$nodes)
     req(nrow(nodeFrame) > 0)
     
     styleZ <- "\\tikzset{ module/.style={draw, rectangle},
@@ -957,7 +947,7 @@ server <- function(input, output, session) {
     
     edgeLines <- character()
     
-    if (length(rv$edges)) {
+    if (length(rve$edges)) {
       # edge_points_rv() is a reactive that gathers values from aesthetics UI
       # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
       edgePts <- debounce(edge_points_rv, 5000)()
@@ -1114,7 +1104,7 @@ server <- function(input, output, session) {
       return(helpText("Please preview DAG to enable downloads"))
     }
     
-    if (!is_tikz_download && !nrow(edge_frame(rv$edges, rv$nodes))) {
+    if (!is_tikz_download && !nrow(edge_frame(rve$edges, rvn$nodes))) {
       shinyjs::disable("downloadButton")
       return(helpText("Please add at least one edge to the DAG"))
     }
@@ -1160,14 +1150,14 @@ server <- function(input, output, session) {
         
       } else if (input$downloadType == "dagitty") {
         
-        gdag <- make_dagitty(rv$nodes, rv$edges, input$exposureNode, input$outcomeNode, input$adjustNode)
+        gdag <- make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode)
         
         saveRDS(gdag, file = file)
         
       } else if (input$downloadType == "ggdag") {
         
         tidy_dag <- 
-          make_dagitty(rv$nodes, rv$edges, input$exposureNode, input$outcomeNode, input$adjustNode) %>% 
+          make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode) %>% 
           tidy_dagitty()
         
         saveRDS(tidy_dag, file = file)
