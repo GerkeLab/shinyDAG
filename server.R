@@ -1008,12 +1008,16 @@ server <- function(input, output, session) {
     endZ <- "\\end{tikzpicture}"
     pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
     
-    nodeLines <- tidyr::crossing(x = 1:7, y = 1:7) %>%
+    nodePts <- tidyr::crossing(x = 1:7, y = 1:7) %>%
       left_join(
         nodeFrame,
         by = c("x", "y")
-      ) %>%
-      dag_node_lines()
+      )
+    
+    x_min <- nodePts %>% filter(!is.na(hash)) %>% pull(x) %>% min()
+    y_max <- nodePts %>% filter(!is.na(hash)) %>% pull(y) %>% max()
+    
+    nodeLines <- dag_node_lines(nodePts)
     
     edgeLines <- character()
     
@@ -1028,8 +1032,6 @@ server <- function(input, output, session) {
       
       edgePts <- edgePts %>%
         mutate(
-          x_min = min(from.x, to.x),
-          y_max = max(from.y, to.y),
           parent = tikz_point(from.x, from.y, x_min, y_max),
           child = tikz_point(to.x, to.y, x_min, y_max),
           edgeLine = glue::glue(
