@@ -202,14 +202,16 @@ server <- function(input, output, session) {
     shinyjs::runjs("set_input_focus('node_list_node_name')")
   })
   
-  observeEvent(input$node_list_selected_node, {
+  observe({
     if (is.null(input$node_list_selected_node)) {
       shinyjs::hide("node_list_node_name_container")
+      node_list_newest_node(NULL)
       return()
     } 
     
-    if (!is.null(node_list_newest_node()) && 
-        node_list_newest_node() == input$node_list_selected_node) {
+    s_newest_node <- isolate(node_list_newest_node())
+    
+    if (!is.null(s_newest_node) && s_newest_node == input$node_list_selected_node) {
       # A new node was recently selected, and was handled above
       return()
     }
@@ -225,12 +227,6 @@ server <- function(input, output, session) {
     )
   }, priority = 1000)
   
-  # Name of currently selected node
-  # node_list_name <- reactive({
-  #   req(input$node_list_node_name, input$node_list_selected_node)
-  #   input$node_list_node_name
-  # })
-  
   # Handle node name text input
   observeEvent(input$node_list_node_name, {
     # node_name_debounced <- debounce(node_list_name, 500)
@@ -242,7 +238,7 @@ server <- function(input, output, session) {
   # Show editing buttons when appropriate
   observe({
     I("toggle edit buttons")
-    if (is.null(input$node_list_selected_node)) {
+    if (is.null(input$node_list_selected_node) || !length(rvn$nodes)) {
       # no node selected, can only add a new node
       shinyjs::hide("node_list_node_remove")
       shinyjs::hide("node_list_node_delete")
@@ -277,16 +273,75 @@ server <- function(input, output, session) {
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
     
     shinyjs::hide("node_list_node_name_container")
+    shinyjs::hide("node_list_node_delete")
+  })
+  
+  output$node_list_helptext <- renderUI({
+    no_nodes <- length(rvn$nodes) == 0
+    no_node_selected <- !no_nodes && is.null(input$node_list_selected_node)
+    no_dag_nodes <- !no_nodes && length(nodes_in_dag(rvn$nodes)) == 0
+    node_in_dag <- !no_dag_nodes && 
+      input$node_list_selected_node %in% nodes_in_dag(rvn$nodes)
+    
+    if (no_nodes) {
+      helpText(
+        "Use the", icon("plus"), "button above to add a node",
+        "to your shinyDAG workspace"
+      )
+    } else if (no_dag_nodes && no_node_selected) {
+      helpText("Activate a node above to add to DAG")
+    } else if (no_node_selected) {
+      helpText("Activate a node above or double-click node in DAG")
+    } else if (node_in_dag) {
+      helpText(
+        "Click on unoccupied space to position",
+        tags$strong(node_name_from_hash(rvn$nodes, input$node_list_selected_node)),
+        "in DAG"
+      )
+    } else {
+      helpText(
+        "Click on unoccupied space to add",
+        tags$strong(node_name_from_hash(rvn$nodes, input$node_list_selected_node)),
+        "to DAG"
+      )
+    }
   })
   
   # ---- Click Pad ----
   req_nodes <- function() {
     if (!length(rvn$nodes)) {
-      warnNotification("Please add a node")
+      cat("\n No Nodes!")
+      edge_helptext("Please add a node to the DAG first.")
       FALSE
-    }
-    TRUE
+    } else TRUE
   }
+  
+  edge_helptext <- function(inner, tag = "div", class = "help-block text-danger alert-edge") {
+    edge_helptext_trigger(Sys.time())
+    edge_helptext_feedback(list(class = class, inner = inner, tag = tag))
+  }
+  
+  edge_normal_help_html <- list(
+    inner = "Double-click on a node to set parent node. Single-click to set child node.",
+    class = "help-block",
+    tag = "p"
+  )
+  edge_helptext_trigger <- reactiveVal(Sys.time())
+  edge_helptext_feedback <- reactiveVal(NULL)
+  
+  output$edge_list_helptext <- renderUI({
+    debug_input(isolate(edge_helptext_feedback()), "edge_helptext_feedback")
+    
+    edge_helptext_trigger()
+    
+    if (!is.null(isolate(edge_helptext_feedback()))) {
+      invalidateLater(4800)
+    } 
+    
+    html <- isolate(edge_helptext_feedback()) %||% edge_normal_help_html
+    edge_helptext_feedback(NULL)
+    tag(html$tag, list(class = html$class, html$inner))
+  })
   
   # Click Behavior Overview
   # 1. Double Click to Select/Deselect Node
@@ -294,16 +349,6 @@ server <- function(input, output, session) {
   # 2. Single Click With Active Node
   #     - Blank Space: move/place node
   #     - On second node: set Child Node
-  
-  toggle_node_btn_state <- function(id, state = NULL) {
-    if (!grepl("_", id)) {
-      # If no underscore, then it was a hash and not the full id
-      id <- node_btn_id(id)
-    }
-    
-    state <- state %||% !input[[id]]
-    updateButton(session, id, value = state)
-  }
   
   # Single Click Handler
   observeEvent(input$pad_click, {
@@ -313,14 +358,18 @@ server <- function(input, output, session) {
     
     if (is.null(input$node_list_selected_node)) {
       # No active node
-      warnNotification("Please double click to select a node")
+      edge_helptext("Please double-click on a node to activate it.")
       return()
     }
     
-    # Single Click on Node: Set Child Node
+    # Single Click on Node: Toggle Child Node
     nearest_node <- node_nearest(rvn$nodes, input$pad_click)
     if (nrow(nearest_node)) {
-      updateSelectizeInput(session, "to_edge", selected = nearest_node$hash)
+      if (input$to_edge == nearest_node$hash) {
+        updateSelectizeInput(session, "to_edge", selected = "")
+      } else {
+        updateSelectizeInput(session, "to_edge", selected = nearest_node$hash)
+      }
       return()
     }
     
@@ -356,16 +405,34 @@ server <- function(input, output, session) {
         updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
         # Set parent node
         updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
+      } else {
+        edge_helptext("Double-click on a node to activate and set as parent node.")
       }
     } else if (nrow(nearest_node)) {
       # Another node is already active
       s_node_btn <- input$node_list_selected_node
-      toggle_node_btn_state(s_node_btn, state = FALSE)
       if (!identical(nearest_node$hash, s_node_btn %>% node_btn_get_hash())) {
-        # Activate New Node
+        # Picked a node that's not the currently selected node, so activate
+        s_to_edge <- input$to_edge
         updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
         updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
+        if (s_to_edge == nearest_node$hash) {
+          # if we're activating a node that's currently the child, swap edges
+          updateSelectizeInput(session, "to_edge", selected = s_node_btn)
+        }
+      } else {
+        # Un-parent the active, dbl-clicked node
+        if (input$from_edge == "") {
+          updateSelectizeInput(session, "from_edge", selected = s_node_btn)
+        } else {
+          updateSelectizeInput(session, "from_edge", selected = "")
+        }
       }
+    } else {
+      #  Double clicked on empty space, so clear selections
+      updateButtonGroupValue("node_list_selected_node", values = NULL)
+      updateSelectizeInput(session, "from_edge", selected = "")
+      updateSelectizeInput(session, "to_edge", selected = "")
     }
   })
   
@@ -374,21 +441,22 @@ server <- function(input, output, session) {
     req(rvn$nodes)
     rv_pts <- node_frame(rvn$nodes)
     
+    plot_lims <- c(0.5, 7.5)
+    par(mar = rep(0, 4))
+    
     if (nrow(rv_pts)) {
       active_node <- node_btn_get_hash(input$node_list_selected_node)
       if (!length(active_node)) active_node <- ""
       rv_pts <- mutate(
         rv_pts,
         color = case_when(
-          # hash == active_node & hash == input$from_edge ~ "purple3",
-          # hash == active_node & hash == input$to_edge ~ "darkorange3",
           hash == active_node ~ "firebrick3",
-          # hash == input$from_edge ~ "steelblue3",
-          # hash == input$to_edge ~ "goldenrod3",
           TRUE ~ "black"
         )
       )
-      plot(rv_pts$x, rv_pts$y, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i", col = "white")
+      plot(rv_pts$x, rv_pts$y, xlim = plot_lims, ylim = plot_lims, bty = "n", 
+           xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs="i", yaxs="i", 
+           col = "white")
       grid()
       # highlight from/to edge nodes
       if (input$from_edge != "") {
@@ -423,9 +491,11 @@ server <- function(input, output, session) {
       # add text labels
       text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
     } else {
-      plot(NA, NA, xlim = c(1, 7), ylim = c(1, 7), bty = "n", xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs = "i")
+      plot(NA, NA, xlim = plot_lims, ylim = plot_lims, bty = "n", axes = FALSE, 
+           ylab = "", xlab = "", xaxs="i", yaxs="i")
       grid()
     }
+    graphics::box(which = "figure", lty = "solid", col = "#999999", lwd = 1)
   }, height = 600)
   
   # ---- Node - Options ----
@@ -606,10 +676,10 @@ server <- function(input, output, session) {
   # Add or Remove Edges
   observeEvent(input$edge_btn, {
     if (input$from_edge == "") {
-      warnNotification('Please choose a "Parent" node')
+      edge_helptext('Please choose a "Parent" node')
       return()
     } else if (input$to_edge == "") {
-      warnNotification('Please choose a "Child" node')
+      helpedge_helptext('Please choose a "Child" node')
       return()
     }
     
