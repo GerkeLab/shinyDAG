@@ -58,33 +58,38 @@ function(request) {
               tags$div(
                 class = "btn-group",
                 role = "group",
-                tags$div(
-                  id = "node_list_actions_deselected",
+                actionButton(
+                  input = "node_list_node_add", 
+                  label = "", 
+                  icon = icon("plus"),
+                  alt = "Create New Node in Workspace",
+                  `data-toggle` = "tooltip",
+                  `data-placement` = "bottom",
+                  title = "Create New Node in Workspace"
+                ),
+                actionButton(
+                  input = "node_list_node_dag_add",
+                  label = "Add to DAG",
+                  alt = "Add to DAG",
+                  `data-toggle` = "tooltip",
+                  `data-placement` = "bottom",
+                  title = "Add to DAG"
+                ),
+                shinyjs::hidden(
                   actionButton(
-                    input = "node_list_node_add", 
-                    label = "", 
-                    icon = icon("plus"),
-                    alt = "Create New Node in Workspace",
+                    "node_list_node_remove", "", icon("eraser"),
+                    alt = "Remove from DAG",
                     `data-toggle` = "tooltip",
                     `data-placement` = "bottom",
-                    title = "Create New Node in Workspace"
-                  ),
-                  shinyjs::hidden(
-                    actionButton(
-                      "node_list_node_remove", "", icon("eraser"),
-                      alt = "Remove from DAG",
-                      `data-toggle` = "tooltip",
-                      `data-placement` = "bottom",
-                      title = "Remove from DAG")
-                  ),
-                  shinyjs::hidden(
-                    actionButton(
-                      "node_list_node_delete", "", icon("trash"),
-                      alt = "Delete Node",
-                      `data-toggle` = "tooltip",
-                      `data-placement` = "bottom",
-                      title = "Delete Node")
-                  )
+                    title = "Remove from DAG")
+                ),
+                shinyjs::hidden(
+                  actionButton(
+                    "node_list_node_delete", "", icon("trash"),
+                    alt = "Delete Node",
+                    `data-toggle` = "tooltip",
+                    `data-placement` = "bottom",
+                    title = "Delete Node")
                 )
               )
             ),
@@ -101,10 +106,12 @@ function(request) {
             fluidRow(
               column(
                 width = 12,
-                plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", 
-                           height = "600px", width = "100%")
+                # plotOutput("clickPad", click = "pad_click", dblclick = "pad_dblclick", 
+                #            height = "600px", width = "100%")
+                clickpad_UI("clickpad", height = "600px", width = "100%")
               )
             ),
+            clickpad_debug("clickpad", TRUE, FALSE, FALSE, TRUE),
             fluidRow(column(width = 12, uiOutput("edge_list_helptext"))),
             fluidRow(
               tags$div(

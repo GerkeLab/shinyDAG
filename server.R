@@ -69,93 +69,6 @@ server <- function(input, output, session) {
   # rvn$nodes is a named list where name is a hash
   # rvn$nodes$abcdefg = list(name, x, y)
 
-  # ---- Node Helper Functions ----
-  node_new <- function(nodes, hash, name) {
-    nodes[[hash]] <- list(name = name, x = NA, y = NA)
-    nodes
-  }
-  
-  node_name_valid <- function(nodes, name, warn = FALSE) {
-    if (!nzchar(name)) {
-      warnNotification("Please specify a name for the node")
-      return(FALSE)
-    }
-    name_in_nodes <- vapply(nodes, function(n) name == n$name, FALSE)
-    if (any(name_in_nodes)) {
-      if (warn) warnNotification('"', name, '" is already the name of a node')
-      FALSE
-    } else {
-      TRUE
-    }
-  }
-  
-  node_names <- function(nodes, all = FALSE) {
-    if (!length(nodes)) {
-      return(character())
-    }
-    x <- invertNames(sapply(nodes, function(x) x$name))
-    if (all) {
-      return(x)
-    }
-    has_position <- sapply(nodes, function(x) !is.na(x$x))
-    x[has_position]
-  }
-  
-  node_name_from_hash <- function(nodes, hash) {
-    invertNames(node_names(isolate(nodes), all = TRUE))[hash]
-  }
-  
-  node_update <- function(nodes, hash, name = NULL, x = NULL, y = NULL) {
-    nodes[[hash]]$name <- name %||% nodes[[hash]]$name
-    nodes[[hash]]$x <- x %||% nodes[[hash]]$x
-    nodes[[hash]]$y <- y %||% nodes[[hash]]$y
-    nodes
-  }
-  
-  node_delete <- function(nodes, hash) {
-    .nodes <- nodes[setdiff(names(nodes), hash)]
-    if (length(.nodes)) .nodes else list()
-  }
-  
-  node_frame <- function(nodes, full = FALSE) {
-    if (!length(nodes)) {
-      return(tibble())
-    }
-    x <- bind_rows(nodes) %>%
-      mutate(hash = names(nodes)) %>%
-      select(hash, everything())
-    if (full) {
-      return(x)
-    }
-    filter(x, !is.na(x))
-  }
-  
-  node_vertices <- function(nodes) {
-    v_df <- node_frame(nodes)
-    vertices(
-      name = v_df$name,
-      x = v_df$x,
-      y = v_df$y,
-      hash = v_df$hash
-    )
-  }
-  
-  node_nearest <- function(nodes, coordinfo, threshold = 0.5) {
-    nodes %>%
-      node_frame() %>%
-      mutate(dist = (x - coordinfo$x)^2 + (y - coordinfo$y)^2) %>%
-      arrange(dist) %>%
-      filter(dist <= threshold) %>%
-      slice(1) %>%
-      select(-dist)
-  }
-  
-  nodes_in_dag <- function(nodes) {
-    nodes %>%
-      purrr::keep(~ !is.na(.$x)) %>%
-      names()
-  }
-  
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
@@ -436,67 +349,93 @@ server <- function(input, output, session) {
     }
   })
   
+  clickpad_new_locations <- callModule(
+    clickpad, "clickpad", 
+    nodes = reactive(rvn$nodes),
+    edges = reactive(rve$edges),
+    primary_node = reactive(input$node_list_selected_node),
+    secondary_node = reactive(input$to_edge)
+  )
+  
+  observe({
+    req(clickpad_new_locations())
+    
+    new <- clickpad_new_locations()
+    
+    rvn$nodes <- node_update(rvn$nodes, new$hash, x = new$x, y = new$y)
+  })
+  
+  observeEvent(input$node_list_node_dag_add, {
+    req(input$node_list_selected_node)
+    place_node <- 
+      tidyr::crossing(x = 1:7, y = 1:7) %>% 
+      anti_join(node_frame(rvn$nodes), by = c("x", "y")) %>% 
+      sample_n(1)
+    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node,
+                             x = place_node$x, y = place_node$y)
+  })
+  
   # clickPad display
-  output$clickPad <- renderPlot({
-    req(rvn$nodes)
-    rv_pts <- node_frame(rvn$nodes)
-    
-    plot_lims <- c(0.5, 7.5)
-    par(mar = rep(0, 4))
-    
-    if (nrow(rv_pts)) {
-      active_node <- node_btn_get_hash(input$node_list_selected_node)
-      if (!length(active_node)) active_node <- ""
-      rv_pts <- mutate(
-        rv_pts,
-        color = case_when(
-          hash == active_node ~ "firebrick3",
-          TRUE ~ "black"
-        )
-      )
-      plot(rv_pts$x, rv_pts$y, xlim = plot_lims, ylim = plot_lims, bty = "n", 
-           xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs="i", yaxs="i", 
-           col = "white")
-      grid()
-      # highlight from/to edge nodes
-      if (input$from_edge != "") {
-        edge_from_node <- rv_pts %>% filter(hash == input$from_edge)
-        with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 24, col = NA))
-      }
-      if (input$to_edge != "") {
-        edge_to_node <- rv_pts %>% filter(hash == input$to_edge)
-        with(edge_to_node, points(x, y, bg = "grey94", cex = 12, pch = 21, col = NA))
-      }
-      if (!is.null(input$adjustNode) && input$adjustNode != "") {
-        pts_adjust_node <- rv_pts %>% filter(hash %in% input$adjustNode)
-        for (i in seq_along(pts_adjust_node)) {
-          with(pts_adjust_node[i, ], points(x, y, col = "grey25", cex = 12, pch = 22))
-        }
-      }
-      # add arrows
-      if (length(rve$edges)) {
-        e_pts <- edge_points(rve$edges, rvn$nodes, push_by = 0.05)
-        for (i in seq_len(nrow(e_pts))) {
-          arrows(
-            e_pts$from.x[i],
-            e_pts$from.y[i],
-            e_pts$to.x[i],
-            e_pts$to.y[i],
-            col = e_pts$color[i],
-            lty = e_pts$lty[i],
-            length = 0.1
-          )
-        }
-      }
-      # add text labels
-      text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
-    } else {
-      plot(NA, NA, xlim = plot_lims, ylim = plot_lims, bty = "n", axes = FALSE, 
-           ylab = "", xlab = "", xaxs="i", yaxs="i")
-      grid()
-    }
-    graphics::box(which = "figure", lty = "solid", col = "#999999", lwd = 1)
-  }, height = 600)
+  # output$clickPad <- renderPlot({
+  #   req(rvn$nodes)
+  #   rv_pts <- node_frame(rvn$nodes)
+  #   
+  #   plot_lims <- c(0.5, 7.5)
+  #   par(mar = rep(0, 4))
+  #   
+  #   if (nrow(rv_pts)) {
+  #     active_node <- node_btn_get_hash(input$node_list_selected_node)
+  #     if (!length(active_node)) active_node <- ""
+  #     rv_pts <- mutate(
+  #       rv_pts,
+  #       color = case_when(
+  #         hash == active_node ~ "firebrick3",
+  #         TRUE ~ "black"
+  #       )
+  #     )
+  #     plot(rv_pts$x, rv_pts$y, xlim = plot_lims, ylim = plot_lims, bty = "n", 
+  #          xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs="i", yaxs="i", 
+  #          col = "white")
+  #     grid()
+  #     # highlight from/to edge nodes
+  #     if (input$from_edge != "") {
+  #       edge_from_node <- rv_pts %>% filter(hash == input$from_edge)
+  #       with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 24, col = NA))
+  #     }
+  #     if (input$to_edge != "") {
+  #       edge_to_node <- rv_pts %>% filter(hash == input$to_edge)
+  #       with(edge_to_node, points(x, y, bg = "grey94", cex = 12, pch = 21, col = NA))
+  #     }
+  #     if (!is.null(input$adjustNode) && input$adjustNode != "") {
+  #       pts_adjust_node <- rv_pts %>% filter(hash %in% input$adjustNode)
+  #       for (i in seq_along(pts_adjust_node)) {
+  #         with(pts_adjust_node[i, ], points(x, y, col = "grey25", cex = 12, pch = 22))
+  #       }
+  #     }
+  #     # add arrows
+  #     if (length(rve$edges)) {
+  #       e_pts <- edge_points(rve$edges, rvn$nodes, push_by = 0.05)
+  #       for (i in seq_len(nrow(e_pts))) {
+  #         arrows(
+  #           e_pts$from.x[i],
+  #           e_pts$from.y[i],
+  #           e_pts$to.x[i],
+  #           e_pts$to.y[i],
+  #           col = e_pts$color[i],
+  #           lty = e_pts$lty[i],
+  #           length = 0.1
+  #         )
+  #       }
+  #     }
+  #     # add text labels
+  #     text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
+  #   } else {
+  #     plot(NA, NA, xlim = plot_lims, ylim = plot_lims, bty = "n", axes = FALSE, 
+  #          ylab = "", xlab = "", xaxs="i", yaxs="i")
+  #     grid()
+  #   }
+  #   graphics::box(which = "figure", lty = "solid", col = "#999999", lwd = 1)
+  # }, height = 600)
   
   # ---- Node - Options ----
   update_node_options <- function(
@@ -562,71 +501,6 @@ server <- function(input, output, session) {
   })
   
   # ---- Edges - Add/Remove ----
-  edge_key <- function(x, y) digest::digest(c(x, y))
-  
-  edge_frame <- function(edges, nodes, ...) {
-    dots <- rlang::enexprs(...)
-    
-    all_edges <- bind_rows(edges) %>%
-      mutate(hash = names(edges)) %>%
-      tidyr::gather(position, node_hash, from:to)
-    
-    all_edges %>%
-      filter(hash %in% edges_in_dag(edges, nodes)) %>%
-      left_join(
-        select(node_frame(nodes), hash, name),
-        by = c("node_hash" = "hash")
-      ) %>%
-      tidyr::gather(var, value, node_hash, name) %>%
-      mutate(
-        var = sub("node|name", "", var),
-        var = paste0(position, var)
-      ) %>%
-      select(-position) %>%
-      tidyr::spread(var, value) %>%
-      mutate(!!!dots)
-  }
-  
-  edges_in_dag <- function(edges, nodes) {
-    all_edges <- bind_rows(edges) %>%
-      mutate(hash = names(edges)) %>%
-      tidyr::gather(position, node_hash, from:to)
-    
-    edges_not_in_graph <- all_edges %>%
-      filter(!node_hash %in% nodes_in_dag(nodes))
-    
-    setdiff(all_edges$hash, edges_not_in_graph$hash)
-  }
-  
-  edge_edges <- function(edges, nodes, ...) {
-    do.call(edge, as.list(edge_frame(edges, nodes, ...)))
-  }
-  
-  edge_points <- function(edges, nodes, push_by = 0) {
-    e_df <- edge_frame(edges, nodes)
-    n_df <- node_frame(nodes)
-    
-    e_df %>% 
-      left_join(
-        n_df %>% purrr::set_names(paste0("from_", names(n_df))), 
-        by = "from_hash"
-      ) %>% 
-      left_join(
-        n_df %>% purrr::set_names(paste0("to_", names(n_df))), 
-        by = "to_hash"
-      ) %>%
-      # TODO refactor rest of app to use from_x, etc. and remove line below
-      rename(from.x = from_x, from.y = from_y, to.x = to_x, to.y = to_y) %>% 
-      mutate(
-        d_x = to.x - from.x,
-        d_y = to.y - from.y,
-        from.x = from.x + push_by * d_x,
-        from.y = from.y + push_by * d_y,
-        to.x = to.x - push_by * d_x,
-        to.y = to.y - push_by * d_y
-      )
-  }
-  
   node_choices <- reactiveVal(NULL)
   
   observe({
