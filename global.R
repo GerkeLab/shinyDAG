@@ -12,6 +12,9 @@ library(ggdag)
 library(shinyWidgets)
 library(shinyjs)
 library(shinyThings)
+source("R/node.R")
+source("R/edge.R")
+source("module/clickpad.R")
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
