@@ -50,8 +50,7 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   height: 100px;
   position: absolute;
   bottom: 2%;
-  right: 2%;
-  z-index: 1000;
+  left: 2%;
   filter: drop-shadow(0 3px 4px rgba(0,0,0,0.2));
   transition-duration: 0.25s;
 }
