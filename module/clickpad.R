@@ -71,20 +71,20 @@ clickpad <- function(
   
   arrow_path <- function(from.x, from.y, to.x, to.y, dist = 0.2, ...) {
     # angle of the line between `from` and `to`
-    theta  <- atan2(from.y - to.y, from.x - to.x)
+    theta  <- atan2(to.y - from.y, to.x - from.x)
     
     # push line starting/ending points away from node by a fixed distance
     path_points = list(
-      x0 = from.x - dist * cos(theta), 
-      y0 = from.y - 2 * dist * sin(theta),
-      x1 = to.x   + dist * cos(theta), 
-      y1 = to.y   + 2 * dist * sin(theta)
+      x0 = from.x + dist * cos(theta), 
+      y0 = from.y + dist * sin(theta),
+      x1 = to.x   - dist * cos(theta), 
+      y1 = to.y   - dist * sin(theta)
     )
     
     # Find points for corners of arrow head (third point is `to`)
-    arrow_anchor_x = path_points$x1 + dist * cos(theta)
-    arrow_anchor_y = path_points$y1 + dist * sin(theta)
-    ad <- 0.1 * dist / tan(30 * pi / 180)
+    arrow_anchor_x = path_points$x1 - dist * cos(theta)
+    arrow_anchor_y = path_points$y1 - dist * sin(theta)
+    ad <- 0.1 * dist / tan(1/6 * pi)
     
     path_points$a1_x = arrow_anchor_x + ad * cos(theta + 1/2 * pi)
     path_points$a1_y = arrow_anchor_y + ad * sin(theta + 1/2 * pi)
