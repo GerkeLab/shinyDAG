@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css?family=Lato:300,400,400i,700,700i');
 
+@media (min-width: 768px) and (max-width: 991px) {
+  #shinydag-toolbar-node-list-action {
+    padding-top: 32px;
+  }
+}
+
 /* ---- GerkeLab Admin LTE Theme Tweaks ---- */
 body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   font-family: Lato, sans-serif;
@@ -18,13 +24,10 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   -webkit-box-shadow: 0 3px 3px rgba(0,0,0,0.1) !important;
 }
 
-.wrapper {
+.wrapper, .content-wrapper {
   min-height: 100vh !important;
   height: 100% !important;
   background-color: #f0f0f0 !important;
-}
-.content-wrapper {
-  height: 100%;
 }
 
 @media (max-width:767px) {
@@ -59,6 +62,12 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   transition-property: filter;
   transition-duration: 0.25s;
   filter: drop-shadow(0 0 1px rgba(0,0,0,0.2));
+}
+
+.sidebar-menu .gerkelab-logo {
+  left: 50%;
+  margin-left: -50px;
+  filter: none;
 }
 
 /* ---- ShinyDAG specific tweaks ---- */

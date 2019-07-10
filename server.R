@@ -73,114 +73,79 @@ server <- function(input, output, session) {
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
   
-  output$nodeListButtonsLabel <- renderUI({
-    if (!length(rvn$nodes)) {
-      tags$p(tags$strong("Add a Node"))
-    } else if (is.null(input$node_list_selected_node)) {
-      tags$p(tags$strong("Add Node or Select Existing to Edit or Place"))
-    } else {
-      tags$p(tags$strong("Edit or Place Selected Node"))
-    }
-  })
-  
-  
-  output$nodeListButtons <- renderUI({
-    req(rvn$nodes)
-    node_list_buttons_redraw()
-    if (!length(rvn$nodes)) {
-      return()
-    }
-    
-    s_node <- isolate(node_list_newest_node()) %||% input$node_list_selected_node
-    
-    buttonGroup(
-      "node_list_selected_node",
-      choices = node_names(rvn$nodes, all = TRUE),
-      multiple = FALSE,
-      selected = s_node
-    )
-  })
-  
   node_list_buttons_redraw <- reactiveVal(Sys.time())
-  node_list_newest_node <- reactiveVal(NULL)
+  node_list_node_is_new <- reactiveVal(FALSE)
+  node_list_selected_node <- reactive({ node_parent(rvn$nodes) })
+  node_list_selected_child <- reactive({ node_child(rvn$nodes) })
+  
+  # debug selected nodes
+  observe({
+    debug_input(node_list_selected_node(), "node_list_selected_node")
+    debug_input(node_list_selected_child(), "node_list_selected_child")
+  })
   
   # Handle add node button, creates new node and sets focus
   observeEvent(input$node_list_node_add, {
     new_node_hash <- digest::digest(Sys.time())
-    rvn$nodes <- node_new(rvn$nodes, new_node_hash, "new node")
+    rvn$nodes <- node_new(rvn$nodes, new_node_hash, "new node") %>% 
+      node_set_attribute(new_node_hash, "parent")
     node_list_buttons_redraw(Sys.time())
-    node_list_newest_node(new_node_hash)
-    updateTextInput(session, "node_list_node_name", value = "", placeholder = "Enter Node Name")
-    shinyjs::show("node_list_node_name_container")
-    shinyjs::runjs("set_input_focus('node_list_node_name')")
+    node_list_node_is_new(TRUE)
   })
   
+  # Show, hide or update node name text input
   observe({
-    if (is.null(input$node_list_selected_node)) {
+    if (is.null(node_list_selected_node())) {
       shinyjs::hide("node_list_node_name_container")
-      node_list_newest_node(NULL)
       return()
     } 
     
-    s_newest_node <- isolate(node_list_newest_node())
-    
-    if (!is.null(s_newest_node) && s_newest_node == input$node_list_selected_node) {
-      # A new node was recently selected, and was handled above
-      return()
-    }
+    s_node_selected <- node_list_selected_node()
     
     # Selected node already exists, update UI
-    node_list_newest_node(NULL)
     shinyjs::show("node_list_node_name_container")
-    s_node_name <- node_name_from_hash(isolate(rvn$nodes), input$node_list_selected_node)
-    updateTextInput(
-      session, 
-      "node_list_node_name", 
-      value = unname(s_node_name)
-    )
+    shinyjs::runjs("set_input_focus('node_list_node_name')")
+    s_node_name <- node_name_from_hash(isolate(rvn$nodes), s_node_selected)
+    if (isolate(node_list_node_is_new())) {
+      node_list_node_is_new(FALSE)
+      updateTextInput(session, "node_list_node_name", value = "", placeholder = "Enter Node Name")
+    } else {
+      updateTextInput(
+        session, 
+        "node_list_node_name", 
+        value = unname(s_node_name)
+      )
+    }
   }, priority = 1000)
   
   # Handle node name text input
   observeEvent(input$node_list_node_name, {
     # node_name_debounced <- debounce(node_list_name, 500)
     # debug_input(node_label_debounced(), "node_label_debounced")
-    req(input$node_list_selected_node, input$node_list_node_name != "")
-    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node, input$node_list_node_name)
+    req(node_list_selected_node(), input$node_list_node_name != "")
+    rvn$nodes <- node_update(rvn$nodes, node_list_selected_node(), input$node_list_node_name)
   }, priority = -1000)
   
   # Show editing buttons when appropriate
   observe({
     I("toggle edit buttons")
-    if (is.null(input$node_list_selected_node) || !length(rvn$nodes)) {
+    if (is.null(node_list_selected_node()) || !length(rvn$nodes)) {
       # no node selected, can only add a new node
-      shinyjs::hide("node_list_node_remove")
       shinyjs::hide("node_list_node_delete")
     } else {
-      if (input$node_list_selected_node %in% nodes_in_dag(rvn$nodes)) {
-        # if the node is in the DAG it can be removed
-        shinyjs::show("node_list_node_remove")
-        shinyjs::hide("node_list_node_delete")
-      } else {
-        # if it's not in the DAG it can be deleted
-        shinyjs::hide("node_list_node_remove")
-        shinyjs::show("node_list_node_delete")
-      }
+      # can now delete any selected node
+      shinyjs::show("node_list_node_delete")
     }
-  })
-  
-  # Action: remove node from DAG
-  observeEvent(input$node_list_node_remove, {
-    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node, x = NA, y = NA)
   })
   
   # Action: delete node
   observeEvent(input$node_list_node_delete, {
     # Remove node
-    rvn$nodes[[input$node_list_selected_node]] <- NULL
+    rvn$nodes[[node_list_selected_node()]] <- NULL
     
     # Remove any edges
     edges_with_node <- rve$edges %>% 
-      purrr::keep(~ input$node_list_selected_node %in% c(.$from, .$to)) %>% 
+      purrr::keep(~ node_list_selected_node() %in% c(.$from, .$to)) %>% 
       names()
     
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
@@ -190,32 +155,31 @@ server <- function(input, output, session) {
   })
   
   output$node_list_helptext <- renderUI({
+    s_node <- node_list_selected_node()
     no_nodes <- length(rvn$nodes) == 0
-    no_node_selected <- !no_nodes && is.null(input$node_list_selected_node)
+    not_enough_nodes <- length(rvn$nodes) < 2
+    no_node_selected <- !no_nodes && is.null(s_node)
     no_dag_nodes <- !no_nodes && length(nodes_in_dag(rvn$nodes)) == 0
-    node_in_dag <- !no_dag_nodes && 
-      input$node_list_selected_node %in% nodes_in_dag(rvn$nodes)
+    not_enough_dag_nodes <- !no_dag_nodes && length(nodes_in_dag(rvn$nodes)) < 2
+    node_in_dag <- !no_dag_nodes && s_node %in% nodes_in_dag(rvn$nodes)
     
     if (no_nodes) {
       helpText(
         "Use the", icon("plus"), "button above to add a node",
         "to your shinyDAG workspace"
       )
-    } else if (no_dag_nodes && no_node_selected) {
-      helpText("Activate a node above to add to DAG")
-    } else if (no_node_selected) {
-      helpText("Activate a node above or double-click node in DAG")
-    } else if (node_in_dag) {
+    } else if (not_enough_nodes) {
+      helpText("Add another node to your shinyDAG workspace")
+    } else if (no_dag_nodes) {
+      helpText("Drag a node from the staging area into the DAG or click its label to edit")
+    } else if (not_enough_dag_nodes) {
+      helpText("Drag another node from the staging area into the DAG")
+    } else if (input$clickpad_click_action == "parent") {
+      helpText("Click on a node label to activate as causal node or to edit its label")
+    } else if (input$clickpad_click_action == "child") {
       helpText(
-        "Click on unoccupied space to position",
-        tags$strong(node_name_from_hash(rvn$nodes, input$node_list_selected_node)),
-        "in DAG"
-      )
-    } else {
-      helpText(
-        "Click on unoccupied space to add",
-        tags$strong(node_name_from_hash(rvn$nodes, input$node_list_selected_node)),
-        "to DAG"
+        "Click on a node label to draw or remove a causal arrow from", 
+        tags$strong(node_name_from_hash(rvn$nodes, node_list_selected_node()))
       )
     }
   })
@@ -256,105 +220,10 @@ server <- function(input, output, session) {
     tag(html$tag, list(class = html$class, html$inner))
   })
   
-  # Click Behavior Overview
-  # 1. Double Click to Select/Deselect Node
-  #     - Sets as Parent Node
-  # 2. Single Click With Active Node
-  #     - Blank Space: move/place node
-  #     - On second node: set Child Node
-  
-  # Single Click Handler
-  observeEvent(input$pad_click, {
-    if (!req_nodes()) {
-      return()
-    }
-    
-    if (is.null(input$node_list_selected_node)) {
-      # No active node
-      edge_helptext("Please double-click on a node to activate it.")
-      return()
-    }
-    
-    # Single Click on Node: Toggle Child Node
-    nearest_node <- node_nearest(rvn$nodes, input$pad_click)
-    if (nrow(nearest_node)) {
-      if (input$to_edge == nearest_node$hash) {
-        updateSelectizeInput(session, "to_edge", selected = "")
-      } else {
-        updateSelectizeInput(session, "to_edge", selected = nearest_node$hash)
-      }
-      return()
-    }
-    
-    # Single Click on Space: Move Active Node
-    node_hash <- node_btn_get_hash(input$node_list_selected_node)
-    
-    if (isTRUE(is.na(rvn$nodes[[node_hash]]$x))) {
-      # Set flag for edge UI updater to make this node the parent node
-      rvn$nodes[[node_hash]]$new_to_dag <- TRUE
-    }
-    
-    rvn$nodes <- node_update(
-      rvn$nodes,
-      node_hash,
-      x = round(input$pad_click$x),
-      y = round(input$pad_click$y)
-    )
-    
-    debug_input(rvn$nodes, "rvn$nodes")
-  })
-  
-  # Double Click Handler
-  observeEvent(input$pad_dblclick, {
-    if (!req_nodes()) {
-      return()
-    }
-    
-    nearest_node <- node_nearest(rvn$nodes, input$pad_dblclick)
-    if (is.null(input$node_list_selected_node)) {
-      # No node currently active
-      if (nrow(nearest_node)) {
-        # Activate Node
-        updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
-        # Set parent node
-        updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
-      } else {
-        edge_helptext("Double-click on a node to activate and set as parent node.")
-      }
-    } else if (nrow(nearest_node)) {
-      # Another node is already active
-      s_node_btn <- input$node_list_selected_node
-      if (!identical(nearest_node$hash, s_node_btn %>% node_btn_get_hash())) {
-        # Picked a node that's not the currently selected node, so activate
-        s_to_edge <- input$to_edge
-        updateButtonGroupValue("node_list_selected_node", nearest_node$hash)
-        updateSelectizeInput(session, "from_edge", selected = nearest_node$hash)
-        if (s_to_edge == nearest_node$hash) {
-          # if we're activating a node that's currently the child, swap edges
-          updateSelectizeInput(session, "to_edge", selected = s_node_btn)
-        }
-      } else {
-        # Un-parent the active, dbl-clicked node
-        if (input$from_edge == "") {
-          updateSelectizeInput(session, "from_edge", selected = s_node_btn)
-        } else {
-          updateSelectizeInput(session, "from_edge", selected = "")
-        }
-      }
-    } else {
-      #  Double clicked on empty space, so clear selections
-      updateButtonGroupValue("node_list_selected_node", values = NULL)
-      updateSelectizeInput(session, "from_edge", selected = "")
-      updateSelectizeInput(session, "to_edge", selected = "")
-    }
-  })
-  
   clickpad_new_locations <- callModule(
     clickpad, "clickpad", 
     nodes = reactive(rvn$nodes),
-    edges = reactive(rve$edges),
-    primary_node = reactive(input$node_list_selected_node),
-    secondary_node = reactive(input$to_edge)
+    edges = reactive(rve$edges)
   )
   
   observe({
@@ -362,80 +231,101 @@ server <- function(input, output, session) {
     
     new <- clickpad_new_locations()
     
-    rvn$nodes <- node_update(rvn$nodes, new$hash, x = new$x, y = new$y)
+    rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
   })
   
-  observeEvent(input$node_list_node_dag_add, {
-    req(input$node_list_selected_node)
-    place_node <- 
-      tidyr::crossing(x = 1:7, y = 1:7) %>% 
-      anti_join(node_frame(rvn$nodes), by = c("x", "y")) %>% 
-      sample_n(1)
-    rvn$nodes <- node_update(rvn$nodes, input$node_list_selected_node,
-                             x = place_node$x, y = place_node$y)
+  # Watch clickpad click events
+  observe({
+    clicked_annotation <- event_data("plotly_clickannotation", source = "clickpad", priority = "event")
+    req(clicked_annotation[["_input"]]$node_hash)
+    
+    click_action = isolate(input$clickpad_click_action)
+    clicked_hash = clicked_annotation[["_input"]]$node_hash
+    
+    nodes <- isolate(rvn$nodes)
+    
+    s_node_parent <- node_parent(nodes)
+    s_node_child <- node_child(nodes)
+    has_edge <- edge_exists(isolate(rve$edges), s_node_parent, s_node_child %||% clicked_hash)
+    
+    if (click_action == "parent") {
+      # toggle clicked node as parent node
+      update_button <- nodes[[clicked_hash]]$x >= 0 &&
+        nodes %>% purrr::map_dbl("x") %>% { sum(. >= 0) > 1 }
+      
+      if (is.null(s_node_parent)) {
+        nodes <- node_set_attribute(nodes, clicked_hash, "parent")
+      } else if (clicked_hash == s_node_parent) {
+        update_button <- FALSE
+        nodes <- node_unset_attribute(nodes, clicked_hash, c("parent", "child"))
+      } else {
+        nodes <- node_set_attribute(nodes, clicked_hash, "parent")
+        nodes <- node_unset_attribute(nodes, clicked_hash, "child")
+      }
+      if (update_button) updateRadioSwitchButtons("clickpad_click_action", "child")
+    } else if (click_action == "child") {
+      # toggle clicked node as child node
+      if (!is.null(s_node_parent) && s_node_parent == clicked_hash) {
+        # Can't add edges to self
+        rvn$nodes <- node_unset_attribute(nodes, names(nodes), c("parent", "child"))
+        updateRadioSwitchButtons("clickpad_click_action", "parent")
+        return()
+      } else if (has_edge) {
+        # Clicked on child node that already has edge, will be removing edge
+        nodes <- node_unset_attribute(nodes, clicked_hash, "child")
+      } else if (nodes[[clicked_hash]]$x < 0) {
+        showNotification(
+          "Edges can only be drawn between nodes that are in the DAG area.",
+          duration = 5,
+          type = "error"
+        )
+        return()
+      } else {
+        nodes <- node_set_attribute(nodes, clicked_hash, "child")
+      }
+      rve$edges <- edge_toggle(isolate(rve$edges), s_node_parent, clicked_hash)
+    }
+    rvn$nodes <- nodes
   })
   
-  # clickPad display
-  # output$clickPad <- renderPlot({
-  #   req(rvn$nodes)
-  #   rv_pts <- node_frame(rvn$nodes)
-  #   
-  #   plot_lims <- c(0.5, 7.5)
-  #   par(mar = rep(0, 4))
-  #   
-  #   if (nrow(rv_pts)) {
-  #     active_node <- node_btn_get_hash(input$node_list_selected_node)
-  #     if (!length(active_node)) active_node <- ""
-  #     rv_pts <- mutate(
-  #       rv_pts,
-  #       color = case_when(
-  #         hash == active_node ~ "firebrick3",
-  #         TRUE ~ "black"
-  #       )
-  #     )
-  #     plot(rv_pts$x, rv_pts$y, xlim = plot_lims, ylim = plot_lims, bty = "n", 
-  #          xaxt = "n", yaxt = "n", ylab = "", xlab = "", xaxs="i", yaxs="i", 
-  #          col = "white")
-  #     grid()
-  #     # highlight from/to edge nodes
-  #     if (input$from_edge != "") {
-  #       edge_from_node <- rv_pts %>% filter(hash == input$from_edge)
-  #       with(edge_from_node, points(x, y, bg = "grey94", cex = 12, pch = 24, col = NA))
-  #     }
-  #     if (input$to_edge != "") {
-  #       edge_to_node <- rv_pts %>% filter(hash == input$to_edge)
-  #       with(edge_to_node, points(x, y, bg = "grey94", cex = 12, pch = 21, col = NA))
-  #     }
-  #     if (!is.null(input$adjustNode) && input$adjustNode != "") {
-  #       pts_adjust_node <- rv_pts %>% filter(hash %in% input$adjustNode)
-  #       for (i in seq_along(pts_adjust_node)) {
-  #         with(pts_adjust_node[i, ], points(x, y, col = "grey25", cex = 12, pch = 22))
-  #       }
-  #     }
-  #     # add arrows
-  #     if (length(rve$edges)) {
-  #       e_pts <- edge_points(rve$edges, rvn$nodes, push_by = 0.05)
-  #       for (i in seq_len(nrow(e_pts))) {
-  #         arrows(
-  #           e_pts$from.x[i],
-  #           e_pts$from.y[i],
-  #           e_pts$to.x[i],
-  #           e_pts$to.y[i],
-  #           col = e_pts$color[i],
-  #           lty = e_pts$lty[i],
-  #           length = 0.1
-  #         )
-  #       }
-  #     }
-  #     # add text labels
-  #     text(rv_pts$x, rv_pts$y, labels = rv_pts$name, cex = 2, col = rv_pts$color)
-  #   } else {
-  #     plot(NA, NA, xlim = plot_lims, ylim = plot_lims, bty = "n", axes = FALSE, 
-  #          ylab = "", xlab = "", xaxs="i", yaxs="i")
-  #     grid()
-  #   }
-  #   graphics::box(which = "figure", lty = "solid", col = "#999999", lwd = 1)
-  # }, height = 600)
+  observe({
+    reset_clickpad_action <- function() {
+      updateRadioSwitchButtons("clickpad_click_action", "parent")
+      invisible()
+    }
+    
+    if (length(rvn$nodes) < 2) return(reset_clickpad_action())
+    
+    dag_has_two_nodes <- rvn$nodes %>% purrr::map_dbl("x") %>% { sum(. >= 0) > 1 }
+    if (!dag_has_two_nodes) return(reset_clickpad_action())
+    
+    if (!is.null(node_list_selected_node())) {
+      if (rvn$nodes[[node_list_selected_node()]]$x < 0) {
+        reset_clickpad_action()
+      }
+    }
+  })
+  
+  # Don't allow clickpad edge adding unless node conditions are met
+  observeEvent(input$clickpad_click_action, {
+    req(input$clickpad_click_action == "child")
+    valid <- FALSE
+    if (length(rvn$nodes) < 2) {
+      showNotification("Please add at least 2 nodes to your DAG workspace first.", duration = 5)
+    } else if (rvn$nodes %>% purrr::keep(~ .$x >= 0) %>% length() < 2) {
+      showNotification("Please drag at least 2 nodes into the DAG area first.", duration = 5)
+    } else if (is.null(node_list_selected_node())) {
+      showNotification("A parent node must be selected first", duration = 5)
+    } else if (!length(nodes_in_dag(rvn$nodes))) {
+      showNotification(
+        "Please add a node to the DAG by dragging it out of the staging area.", 
+        duration = 5
+      )
+    } else {
+      valid <- TRUE
+    }
+    if (!valid) updateRadioSwitchButtons("clickpad_click_action", "parent")
+  })
   
   # ---- Node - Options ----
   update_node_options <- function(
@@ -468,22 +358,58 @@ server <- function(input, output, session) {
   }
   
   observe({
-    update_node_options(rvn$nodes, "adjustNode", updateSelectizeInput, toggle = TRUE)
-    update_node_options(rvn$nodes, "exposureNode", updateSelectInput, toggle = TRUE)
-    update_node_options(rvn$nodes, "outcomeNode", updateSelectInput, toggle = TRUE)
+    update_node_options(
+      rvn$nodes %>% purrr::keep(~ .$x >= 0), 
+      "adjustNode", 
+      updateSelectizeInput, 
+      toggle = TRUE
+    )
+    update_node_options(
+      rvn$nodes %>% purrr::keep(~ .$x >= 0), 
+      "exposureNode", 
+      updateSelectInput, 
+      toggle = TRUE
+    )
+    update_node_options(
+      rvn$nodes %>% purrr::keep(~ .$x >= 0), 
+      "outcomeNode", 
+      updateSelectInput, 
+      toggle = TRUE
+    )
   })
   
   observeEvent(input$exposureNode, {
-    req(input$exposureNode)
-    if (input$exposureNode == input$outcomeNode) {
+    nodes <- isolate(rvn$nodes)
+    if (input$exposureNode == "") {
+      rvn$nodes <- node_unset_attribute(nodes, names(nodes), "exposure")
+    } else if (input$exposureNode == input$outcomeNode) {
       updateSelectInput(session, "outcomeNode", selected = "")
+      rvn$nodes <- node_unset_attribute(nodes, names(nodes), "outcome")
+    } else {
+      rvn$nodes <- node_set_attribute(nodes, input$exposureNode, "exposure")
     }
   })
   
   observeEvent(input$outcomeNode, {
-    req(input$outcomeNode)
-    if (input$outcomeNode == input$exposureNode) {
+    nodes <- isolate(rvn$nodes)
+    if (input$outcomeNode == "") {
+      rvn$nodes <- node_unset_attribute(nodes, names(nodes), "outcome")
+    } else if (input$outcomeNode == input$exposureNode) {
       updateSelectInput(session, "exposureNode", selected = "")
+      rvn$nodes <- node_unset_attribute(nodes, names(nodes), "exposure")
+    } else {
+      rvn$nodes <- node_set_attribute(nodes, input$outcomeNode, "outcome")
+    }
+  })
+  
+  observeEvent(input$adjustNode, {
+    nodes <- isolate(rvn$nodes)
+    if (is.null(input$adjustNode)) return()
+    s_adjust <- input$adjustNode
+    rvn$nodes <- if (length(s_adjust) == 1 && s_adjust == "") {
+      node_unset_attribute(nodes, names(node), "adjusted")
+    } else {
+      node_set_attribute(nodes, s_adjust, "adjusted")
     }
   })
   
@@ -498,112 +424,6 @@ server <- function(input, output, session) {
         input$outcomeNode
       )
     }
-  })
-  
-  # ---- Edges - Add/Remove ----
-  node_choices <- reactiveVal(NULL)
-  
-  observe({
-    # This observer exists to isolate parent/child node selection from
-    # spurious changes in rvn$nodes, i.e. to ensure that changes are propagated
-    # only when the node name choices change
-    choices <- node_names(rvn$nodes)
-    debug_input(choices, "choices")
-    if (!identical(isolate(node_choices()), choices)) {
-      node_choices(choices)
-    }
-  })
-  
-  # Update Parent/Child node selection for edges
-  observeEvent(node_choices(), {
-    req(node_choices())
-    if (length(node_choices())) {
-      
-      # Force new node to be selected as parent node
-      nodes_is_new <- purrr::map_lgl(rvn$nodes, ~ "new_to_dag" %in% names(.))
-      if (any(nodes_is_new)) {
-        from_edge <- names(nodes_is_new[nodes_is_new])
-        rvn$nodes[[from_edge]]$new_to_dag <- NULL # remove flag
-      } else {
-        from_edge <- input$from_edge
-      }
-      
-      updateSelectizeInput(
-        session,
-        "from_edge",
-        choices = c("Choose edge parent" = "", node_choices()),
-        selected = from_edge
-      )
-      updateSelectizeInput(
-        session,
-        "to_edge",
-        choices = c("Choose edge child" = "", node_choices()),
-        selected = input$to_edge
-      )
-    } else {
-      node_choices <- c("Add a node to the plot area" = "")
-      updateSelectizeInput(session, "from_edge", choices = node_choices())
-      updateSelectizeInput(session, "to_edge", choices = node_choices())
-    }
-  })
-  
-  # Add or Remove Edges
-  observeEvent(input$edge_btn, {
-    if (input$from_edge == "") {
-      edge_helptext('Please choose a "Parent" node')
-      return()
-    } else if (input$to_edge == "") {
-      helpedge_helptext('Please choose a "Child" node')
-      return()
-    }
-    
-    this_edge_key <- edge_key(input$from_edge, input$to_edge)
-    if (this_edge_key %in% names(rve$edges)) {
-      # Remove edge
-      rve$edges <- rve$edges[setdiff(names(rve$edges), this_edge_key)]
-    } else {
-      # Add edge
-      rve$edges[[this_edge_key]] <- list(
-        from = input$from_edge,
-        to = input$to_edge,
-        color = "black",
-        angle = 0L,
-        lineT = "thin",
-        lty = "solid"
-      )
-    }
-    debug_input(rve$edges, "rve$edges")
-  })
-  
-  output$ui_edge_btn <- renderUI({
-    if (is.null(input$from_edge) || is.null(input$to_edge)) {
-      return()
-    }
-    this_edge_key <- edge_key(input$from_edge, input$to_edge)
-    if (input$from_edge == "" || input$to_edge == "") {
-      # Disabled button
-      actionButton("edge_btn", "", icon = icon("plus"), class = "disabled")
-    } else if (this_edge_key %in% names(rve$edges)) {
-      # Remove edge button
-      actionButton("edge_btn", "", icon = icon("minus"), class = "btn-danger")
-    } else {
-      # Add edge button
-      actionButton("edge_btn", "", icon = icon("plus"), class = "btn-success")
-    }
-  })
-  
-  observeEvent(input$ui_edge_swap_btn, {
-    s_from_edge <- input$from_edge
-    s_to_edge <- input$to_edge
-    updateSelectizeInput(session, "from_edge", selected = s_to_edge)
-    updateSelectizeInput(session, "to_edge", selected = s_from_edge)
-  })
-  
-  observe({
-    req(input$from_edge, input$to_edge)
-    s_edges <- c(input$from_edge, input$to_edge)
-    has_one_edge <- !all(s_edges == "")
-    shinyjs::toggleState("ui_edge_swap_btn", has_one_edge)
   })
   
   # ---- DAG Diagnostics ----

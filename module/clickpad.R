@@ -6,16 +6,16 @@ clickpad_UI <- function(id, ...) {
   )
 }
 
-clickpad_debug <- function(id, click = TRUE, doubleclick = TRUE, selected = FALSE, clickannotation = TRUE) {
+clickpad_debug <- function(id, relayout = TRUE, doubleclick = TRUE, selected = FALSE, clickannotation = TRUE) {
   ns <- NS(id)
-  col_width <- 12 / sum(click, doubleclick, selected, clickannotation)
+  col_width <- 12 / sum(relayout, doubleclick, selected, clickannotation)
   tagList(
     fluidRow(
       style = "overflow-y: scroll; max-height: 200px;",
-      if (click) column(
+      if (relayout) column(
         col_width, 
-        tags$p(tags$code("plotly_click")),
-        verbatimTextOutput(ns("v_click"))
+        tags$p(tags$code("plotly_relayout")),
+        verbatimTextOutput(ns("v_relayout"))
       ),
       if (doubleclick) column(
         col_width,
@@ -39,22 +39,19 @@ clickpad_debug <- function(id, click = TRUE, doubleclick = TRUE, selected = FALS
 clickpad <- function(
   input, output, session, 
   nodes, edges, 
-  primary_node = NULL, 
-  secondary_node = NULL, 
   plotly_source = "clickpad"
 ) {
   library(plotly)
   ns <- session$ns
   
-  node_primary <- reactive({
-    if (isTruthy(primary_node())) primary_node()
-  })
-  node_secondary <- reactive({
-    if (isTruthy(secondary_node())) secondary_node()
-  })
+  node_primary <- reactive({ node_parent(nodes()) })
+  node_secondary <- reactive({ node_child(nodes()) })
+  node_is_adjusted <- reactive({ node_adjusted(nodes()) })
+  node_exposure <- reactive({ names(node_with_attribute(nodes(), "exposure")) })
+  node_outcome <- reactive({ names(node_with_attribute(nodes(), "outcome")) })
   
-  output$v_click <- renderPrint({ 
-    str(event_data("plotly_click", priority = "event", source = plotly_source))
+  output$v_relayout <- renderPrint({ 
+    str(event_data("plotly_relayout", priority = "event", source = plotly_source))
   })
   
   output$v_doubleclick <- renderPrint({ 
@@ -101,7 +98,11 @@ clickpad <- function(
   arrows <- reactive({
     if (is.null(edges()) || length(edges()) == 0) return(NULL)
     if (is.null(nodes()) || length(nodes()) == 0) return(NULL)
-    edge_points(edges(), nodes()) %>% 
+    
+    ep <- edge_points(edges(), nodes())
+    if (!nrow(ep)) return(NULL)
+    
+    ep %>% 
       purrr::pmap_chr(arrow_path, dist = 0.2) %>% 
       purrr::map(~ list(
         type = "path",
@@ -112,30 +113,66 @@ clickpad <- function(
       ))
   })
   
+  create_node_annotations <- function(x, y, name, hash, ...) {
+    set_color <- function(default, not_in_dag = NULL, 
+                          primary = NULL, secondary = NULL, 
+                          exposure = NULL, outcome = NULL, adjusted = NULL) {
+      is_not_in_dag <- x < 0
+      is_primary <- !is.null(node_primary()) && hash %in% node_primary()
+      is_secondary <- !is.null(node_secondary()) && hash %in% node_secondary()
+      is_adjusted <- !is.null(node_is_adjusted()) && hash %in% node_is_adjusted()
+      is_exposure <- !is.null(node_exposure()) && hash %in% node_exposure()
+      is_outcome <- !is.null(node_outcome()) && hash %in% node_outcome()
+      
+      color <- if (is_primary) { 
+        primary
+      } else if (is_not_in_dag) { 
+        not_in_dag
+      } else if (is_secondary) { 
+        secondary
+      } else if (is_adjusted) { 
+        adjusted
+      } else if (is_exposure) {
+        exposure
+      } else if (is_outcome) {
+        outcome
+      }
+      color %||% default
+    }
+    
+    background_color <- set_color("#FFFFFF", "#FDFDFD", primary = "#F6E3D1")
+    font_color <- set_color("#000000", "#666666", primary = "#D3751C", exposure = "#418c7a", outcome = "#ba2d0b")
+    border_color <- set_color("#EDEDED", "#AAAAAA", primary = list(NULL), adjusted = "#1c2d3f")
+      
+    list(text = name, 
+         node_hash = hash, 
+         x = x, 
+         y = y, 
+         font = list(size = 24, color = font_color),
+         showarrow = FALSE, 
+         align = "center",
+         captureevents = TRUE,
+         textposition = "middle center",
+         bordercolor = border_color,
+         bgcolor = background_color,
+         borderpad = 4)
+  }
+  
   annotations <- reactive({
     if (is.null(nodes()) || length(nodes()) == 0) return(NULL)
     node_frame(nodes()) %>% 
-      purrr::pmap(function(x, y, name, hash, ...) {
-        border_color <- if (!is.null(node_primary()) && node_primary() == hash) {
-          "#D3751C"
-        } else if (!is.null(node_secondary()) && node_secondary() == hash) {
-          "#161688"
-        } else "#EEEEEE"
-        
-        list(text = name, 
-             point_hash = hash, 
-             x = x, 
-             y = y, 
-             font = list(size = 24),
-             showarrow = FALSE, 
-             align = "center",
-             captureevents = TRUE,
-             textposition = "middle center",
-             bordercolor = border_color, 
-             bgcolor = "#FFFFFF",
-             borderpad = 4)
-      })
+      purrr::pmap(create_node_annotations)
   })
+  
+  left_margin <- list(
+    type = "rect",
+    line = list(color = "#AAAAAA", width = 1),
+    fillcolor = "#EEEEEE",
+    x0 = -100,
+    y0 = -100,
+    x1 = 0,
+    y1 = 100
+  )
   
   output$plot <- renderPlotly({
     debug_line("rendering clickpad")
@@ -147,42 +184,26 @@ clickpad <- function(
       showline = FALSE,
       showticklabels = FALSE,
       showgrid = TRUE,
-      # domain = list(0.5, 7.5),
-      range = list(0.5, 7.5)
-      # rangemode = "nonnegative",
-      # fixedrange = TRUE
-      # constrain = "range"
+      range = list(-1.5, 12.5)
     )
+    ay <- ax
+    ay$range <- list(0.5, 7.5)
     
     p <- plot_ly(type = "scatter", source = plotly_source)
     
-    if (FALSE && !is.null(nodes()) && length(nodes()) > 0) {
-      p <- p %>% 
-      add_markers(
-        data = node_frame(nodes()),
-        x = ~x,
-        y = ~y,
-        # hash = ~hash,
-        showlegend = FALSE,
-        color = I("#FFFFFF")
-      )
-    }
-    
     p %>% 
       layout(
-        shapes = arrows(),
         annotations = annotations(), 
+        shapes = c(list(left_margin), arrows()),
         xaxis = ax,
-        yaxis = ax
-        # yaxis = c(ax, list(scaleanchor = "x"))
+        yaxis = ay
       ) %>% 
       config(
         edits = list(
-          # shapePosition = TRUE, 
           annotationPosition = TRUE
         ),
-        showAxisDragHandles = FALSE,
-        displayModeBar = FALSE
+        showAxisDragHandles = FALSE
+        # displayModeBar = FALSE
       ) %>% 
       plotly::event_register("plotly_click") %>% 
       plotly::event_register("plotly_doubleclick") %>% 
@@ -212,25 +233,23 @@ clickpad <- function(
     if (!is.integer(annot_index)) return()
     # browser()
     
-    point_hash <- annotations()[[annot_index + 1]]$point_hash
+    node_hash <- annotations()[[annot_index + 1]]$node_hash
     # cli::cat_line("event_name: ", names(event)[1])
     # cli::cat_line("annot_index: ", annot_index)
-    # cli::cat_line("point_hash: ", point_hash)
+    # cli::cat_line("node_hash: ", node_hash)
     
-    req(!is.null(point_hash))
+    req(!is.null(node_hash))
     
-    new_x <- annot_event[grepl("\\.x", names(annot_event))] %>% 
-      unlist() %>% mean() %>% round(0)
-    new_y <- annot_event[grepl("\\.y", names(annot_event))] %>% 
-      unlist() %>% mean() %>% round(0)
+    new_x <- annot_event[grepl("\\.x", names(annot_event))] %>% unlist()
+    new_y <- annot_event[grepl("\\.y", names(annot_event))] %>% unlist()
     
     # cli::cat_line("new_x: ", new_x)
     # cli::cat_line("new_y: ", new_y)
     
     list(
-      hash = point_hash,
-      x = new_x,
-      y = new_y
+      hash = node_hash,
+      x = if (new_x > 0) round(new_x, 0) else new_x,
+      y = if (new_x > 0) round(new_y, 0) else new_y
     )
   })
   
