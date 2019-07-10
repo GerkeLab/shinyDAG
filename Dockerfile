@@ -75,7 +75,7 @@ RUN install2.r --error tinytex \
 RUN install2.r --error --deps TRUE shinyjs plotly \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
-RUN installGithub.r gadenbuie/shinyThings@1bf490cc16453c24c31521fd4db63036efb245d5 \
+RUN installGithub.r gadenbuie/shinyThings@fb6f03f9f26e9f1741f67fc93ade53867d8fd4d9 \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 ARG SHINY_APP_IDLE_TIMEOUT=600
