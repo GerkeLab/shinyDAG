@@ -469,22 +469,26 @@ server <- function(input, output, session) {
       )
     )
     
-    nodes <- invertNames(node_names(rvn$nodes))
+    purrr::safely(dagitty_open_paths)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
+  dagitty_open_paths <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
     gd <- make_dagitty(
-      edges = rve$edges, 
-      nodes = rvn$nodes,
-      exposure = input$exposureNode,
-      outcome = input$outcomeNode,
-      adjusted = input$adjustNode
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
     )
     
     exp_outcome_paths <- paths(
       gd,
-      Z = input$adjustNode %??% unname(nodes[input$adjustNode])
+      Z = adjusted %??% unname(node_names[adjusted])
     )
     
     exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
-  })
+  }
   
   dagitty_format_paths <- function(paths) {
     HTML(paste0(
@@ -499,6 +503,16 @@ server <- function(input, output, session) {
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
     
     open_paths <- dagitty_open_exp_outcome_paths()
+    
+    validate(need(
+      is.null(open_paths$error),
+      paste(
+        "There was an error building your graph. It may not be fully or",
+        "correctly specified."
+      )
+    ), errorClass = " text-danger")
+    
+    open_paths <- open_paths$result
     
     if (length(open_paths)) {
       tagList(
