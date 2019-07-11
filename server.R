@@ -245,7 +245,6 @@ server <- function(input, output, session) {
     
     s_node_parent <- node_parent(nodes)
     s_node_child <- node_child(nodes)
-    has_edge <- edge_exists(isolate(rve$edges), s_node_parent, s_node_child %||% clicked_hash)
     
     if (click_action == "parent") {
       # toggle clicked node as parent node
@@ -262,8 +261,12 @@ server <- function(input, output, session) {
         nodes <- node_unset_attribute(nodes, clicked_hash, "child")
       }
       if (update_button) updateRadioSwitchButtons("clickpad_click_action", "child")
+      
     } else if (click_action == "child") {
       # toggle clicked node as child node
+      has_edge <- edge_exists(isolate(rve$edges), s_node_parent, s_node_child %||% clicked_hash)
+      has_reverse_edge <- edge_exists(isolate(rve$edges), s_node_child %||% clicked_hash, s_node_parent)
+      
       if (!is.null(s_node_parent) && s_node_parent == clicked_hash) {
         # Can't add edges to self
         rvn$nodes <- node_unset_attribute(nodes, names(nodes), c("parent", "child"))
@@ -282,7 +285,13 @@ server <- function(input, output, session) {
       } else {
         nodes <- node_set_attribute(nodes, clicked_hash, "child")
       }
-      rve$edges <- edge_toggle(isolate(rve$edges), s_node_parent, clicked_hash)
+      
+      # Remove reverse edge if it exists
+      rv_edges <- isolate(rve$edges)
+      if (has_reverse_edge) {
+        rv_edges <- edge_toggle(rv_edges, clicked_hash, s_node_parent)
+      }
+      rve$edges <- edge_toggle(rv_edges, s_node_parent, clicked_hash)
     }
     rvn$nodes <- nodes
   })
