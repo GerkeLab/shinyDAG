@@ -35,7 +35,7 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
             "Single <code>$</code> need to be escaped: <code>\\$</code>.</p>"
           )
         )),
-        uiOutput(ns("tikzOut"))
+        shinycssloaders::withSpinner(uiOutput(ns("tikzOut")), color = "#C4C4C4")
       )
     ),
     fluidRow(
