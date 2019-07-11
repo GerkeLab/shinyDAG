@@ -665,8 +665,7 @@ server <- function(input, output, session) {
   }
   
   tikz_code_from_app <- reactive({
-    # TODO: require tweak tab is active as well
-    req(rvn$nodes, tweak_preview_visible())
+    req(rvn$nodes, tweak_preview_visible(), input$shinydag_page == "tweak")
     nodeFrame <- node_frame(rvn$nodes)
     req(nrow(nodeFrame) > 0)
     
@@ -755,7 +754,10 @@ server <- function(input, output, session) {
     module = dagPreview,
     id = "tweak_preview",
     session_dir = SESSION_TEMPDIR,
-    tikz_code_from_app,
+    tikz_code = reactive({
+      req(input$shinydag_page == "tweak")
+      tikz_code_from_app()
+    }),
     dag_dagitty,
     dag_tidy
   )
@@ -784,7 +786,10 @@ server <- function(input, output, session) {
     module = dagPreview,
     id = "latex_preview",
     session_dir = SESSION_TEMPDIR,
-    reactive(input$manual_tikz)
+    reactive({
+      req(input$shinydag_page == "latex")
+      input$manual_tikz
+    })
   )
 
 }
