@@ -41,6 +41,7 @@ edge_frame <- function(edges, nodes, ...) {
 }
 
 edges_in_dag <- function(edges, nodes) {
+  if (!length(nodes) || !length(edges)) return(character())
   all_edges <- bind_rows(edges) %>%
     mutate(hash = names(edges)) %>%
     tidyr::gather(position, node_hash, from:to)
