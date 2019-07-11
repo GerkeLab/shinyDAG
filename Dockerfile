@@ -72,7 +72,10 @@ RUN install2.r --error tinytex \
   && echo "PATH=${PATH}" >> /usr/local/lib/R/etc/Renviron \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
-RUN install2.r --error --deps TRUE shinyjs plotly \
+RUN install2.r --error --deps TRUE shinyjs \
+  && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
+
+RUN install2.r --error plotly \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 RUN installGithub.r gadenbuie/shinyThings@fb6f03f9f26e9f1741f67fc93ade53867d8fd4d9 \
