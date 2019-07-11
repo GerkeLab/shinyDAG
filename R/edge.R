@@ -17,7 +17,7 @@ edge_frame <- function(edges, nodes, ...) {
     for (col in names(cols)) {
       x[[col]] <- x[[col]] %||% cols[[col]]
     }
-    x
+    x %>% tidyr::replace_na(cols)
   }
   
   edges %>%
