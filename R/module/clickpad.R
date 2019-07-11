@@ -214,7 +214,9 @@ clickpad <- function(
       range = list(-1.5, 12.5)
     )
     ay <- ax
-    ay$range <- list(0.5, 7.5)
+    y_min <- purrr::map_dbl(nodes(), "y") %>% min()
+    y_max <- purrr::map_dbl(nodes(), "y") %>% max()
+    ay$range <- list(min(0.5, y_min), max(7.5, y_max))
     
     p <- plot_ly(type = "scatter", source = plotly_source)
     
