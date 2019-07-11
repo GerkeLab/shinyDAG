@@ -16,6 +16,7 @@ server <- function(input, output, session) {
     state$values$rvn$nodes <- rvn$nodes
     state$values$rve <- list()
     state$values$rve$edges <- rve$edges
+    state$values$query_string <- session$clientData$url_search
     
     # Store outcome/exposure/adjust node selections
     state$values$sel <- list(
