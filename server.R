@@ -36,7 +36,7 @@ server <- function(input, output, session) {
       title = NULL,
       easyClose = FALSE,
       footer = NULL,
-      tags$p(class = "text-center", "Loading your ShinyDag workspace, please wait."),
+      tags$p(class = "text-center", "Loading your shinyDag workspace, please wait."),
       tags$div(class = "gerkelab-spinner")
     ))
     if (isTRUE(getOption("shinydag.debug", FALSE))) {
