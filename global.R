@@ -14,7 +14,7 @@ library(shinyjs)
 library(shinyThings)
 source("R/node.R")
 source("R/edge.R")
-source("module/clickpad.R")
+source("R/module/clickpad.R")
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
