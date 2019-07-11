@@ -665,7 +665,7 @@ server <- function(input, output, session) {
   }
   
   tikz_code_from_app <- reactive({
-    req(rvn$nodes, tweak_preview_visible(), input$shinydag_page == "tweak")
+    req(rvn$nodes, tweak_preview_visible())
     nodeFrame <- node_frame(rvn$nodes)
     req(nrow(nodeFrame) > 0)
     

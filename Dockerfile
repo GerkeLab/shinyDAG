@@ -75,7 +75,7 @@ RUN install2.r --error tinytex \
 RUN install2.r --error --deps TRUE shinyjs \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
-RUN install2.r --error plotly \
+RUN install2.r --error plotly shinycssloaders \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 RUN installGithub.r gadenbuie/shinyThings@fb6f03f9f26e9f1741f67fc93ade53867d8fd4d9 \
