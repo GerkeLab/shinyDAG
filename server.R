@@ -140,11 +140,12 @@ server <- function(input, output, session) {
   # Action: delete node
   observeEvent(input$node_list_node_delete, {
     # Remove node
-    rvn$nodes[[node_list_selected_node()]] <- NULL
+    node_to_delete <- node_list_selected_node()
+    rvn$nodes[[node_to_delete]] <- NULL
     
     # Remove any edges
     edges_with_node <- rve$edges %>% 
-      purrr::keep(~ node_list_selected_node() %in% c(.$from, .$to)) %>% 
+      purrr::keep(~ node_to_delete %in% c(.$from, .$to)) %>% 
       names()
     
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
