@@ -11,8 +11,6 @@ server <- function(input, output, session) {
   message("Using session tempdir: ", SESSION_TEMPDIR)
   
   # ---- Bookmarking ----
-  setBookmarkExclude(c("node_list_node_delete", "node_list_node_erase", "node_list_node_add"))
-  
   onBookmark(function(state) {
     state$values$rvn <- list()
     state$values$rvn$nodes <- rvn$nodes
@@ -632,40 +630,13 @@ server <- function(input, output, session) {
     debug_input(rv_edges, "rve$edges after aes update")
   }, priority = -50)
   
-  # ---- Render DAG ----
-  output$tikzOut <- renderUI({
-    req(length(rvn$nodes), input$showPreview)
-    
-    if (is.null(tikz_cache_dir())) return()
-    if (!length(tikz_cache_dir())) {
-      shinyjs::show("tikzOut-help")
-      return()
-    } else {
-      shinyjs::hide("tikzOut-help")
-    }
-    
-    image_path <- file.path(tikz_cache_dir(), "DAGimage.png")
-    if (!file.exists(image_path)) {
-      debug_line("Image does not exist: ", image_path)
-      return()
-    }
-    
-    image_tmp <- tempfile("dag_image_", SESSION_TEMPDIR, ".png")
-    file.copy(image_path, image_tmp)
-    debug_line("Serving image: ", image_tmp)
-    
-    tags$img(
-      src = sub("www/", "", image_tmp, fixed = TRUE),
-      contentType = "image/png",
-      style = "max-width: 100%; max-height: 600px; -o-object-fit: contain;",
-      alt = "DAG"
-    )
-  })
-  
+  # ---- Prepare DAG from App ----
+
   edge_points_rv <- reactive({
     req(length(rve$edges) > 0)
     ep <- edge_points(rve$edges, rvn$nodes)
-    ep[complete.cases(ep), ]
+    req(nrow(ep) > 0)
+    ep
   })
   
   dag_node_lines <- function(nodeFrame) {
@@ -692,8 +663,9 @@ server <- function(input, output, session) {
     paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
   }
   
-  tikz_code <- reactive({
-    req(rvn$nodes, input$showPreview || input$tab_control == "edit_latex")
+  tikz_code_from_app <- reactive({
+    # TODO: require tweak tab is active as well
+    req(rvn$nodes, tweak_preview_visible())
     nodeFrame <- node_frame(rvn$nodes)
     req(nrow(nodeFrame) > 0)
     
@@ -744,100 +716,6 @@ server <- function(input, output, session) {
     paste(c(styleZ, startZ, nodeLines, edgeLines, endZ), collapse = "\n")
   })
   
-  which_tex_preview <- reactive({
-    has_main_app_code <- !is.null(tikz_code())
-    on_manual_tikz_tab <- input$tab_control == "edit_latex"
-    has_manual_tikz_init <- isTruthy(input$manual_tikz)
-    
-    if (!has_main_app_code && !on_manual_tikz_tab) {
-      "none"
-    } else if (on_manual_tikz_tab && has_manual_tikz_init) {
-      "manual"
-    } else {
-      "app"
-    }
-  })
-  
-  has_touched_manual <- FALSE
-  output$showPreview_helptext <- renderUI({
-    tex_showing <- which_tex_preview()
-    if (tex_showing == "manual") {
-      has_touched_manual <<- TRUE
-      helpText("Previewing manually entered TikZ TeX")
-    } else if (has_touched_manual && tex_showing == "app") {
-      helpText("Previewing shinyDAG TikZ TeX")
-    }
-  })
-  
-  tikz_cache_dir <- reactiveVal(NULL)
-  
-  # Re-render TeX preview
-  observe({
-    req(input$showPreview)
-    
-    tikz_lines <- switch(
-      which_tex_preview(),
-      "manual" = input$manual_tikz,
-      "app" = tikz_code(),
-      return(invisible())
-    )
-    
-    useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
-    
-    pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
-    
-    preview_dir <- tex_cached_preview(
-      session_dir = SESSION_TEMPDIR,
-      obj = tikz_lines,
-      stem = "DAGimage",
-      imgFormat = "png",
-      returnType = "shiny",
-      density = tex_opts$get("density"),
-      keep_pdf = TRUE,
-      usrPackages = pkgs,
-      margin = tex_opts$get("margin"),
-      cleanup = tex_opts$get("cleanup")
-    )
-    tikz_cache_dir(preview_dir)
-  }, priority = -100)
-  
-  tex_cached_preview <- function(session_dir, ...) {
-    # Takes arguments for texPreview() except for fileDir
-    # hashes inputs and then writes preview into session_dir/args_hash
-    # Skips rendering if the cache already exists
-    # Returns directory containing the preview documents
-    
-    args <- list(...)
-    args_hash <- digest::digest(args)
-    
-    cache_dir <- file.path(session_dir, args_hash)
-    
-    if (dir.exists(cache_dir)) {
-      return(cache_dir)
-    }
-    
-    dir.create(cache_dir, recursive = TRUE)
-    args$fileDir <- cache_dir
-    tryCatch({
-      do.call("texPreview", args)
-      cache_dir
-    }, error = function(e) {
-      unlink(cache_dir, recursive = TRUE)
-      character()
-    })
-  }
-  
-  # ---- Download Files ----
-  # Merge tikz TeX source into main TeX file
-  merge_tex_files <- function(main_file, input_file, out_file) {
-    x <- readLines(main_file)
-    y <- readLines(input_file)
-    which_line <- grep("input{", x, fixed = TRUE)
-    which_line <- intersect(which_line, grep(basename(input_file), x))
-    x[which_line] <- paste(y, collapse = "\n")
-    writeLines(x, out_file)
-  }
-  
   make_graph <- function(nodes, edges) {
     g <- make_empty_graph()
     if (nrow(node_frame(nodes))) {
@@ -863,79 +741,41 @@ server <- function(input, output, session) {
     
     gdag
   }
-  
-  output$downloadType_helptext <- renderUI({
-    is_tikz_download <- input$downloadType %in% c("pdf", "png", "tikz")
-    if (is_tikz_download && !input$showPreview) {
-      shinyjs::disable("downloadButton")
-      return(helpText("Please preview DAG to enable downloads"))
-    }
-    
-    if (!is_tikz_download && !nrow(edge_frame(rve$edges, rvn$nodes))) {
-      shinyjs::disable("downloadButton")
-      return(helpText("Please add at least one edge to the DAG"))
-    }
-    
-    if (!length(tikz_cache_dir())) {
-      shinyjs::disable("downloadButton")
-      return()
-    }
-      
-    shinyjs::enable("downloadButton")
+
+  dag_dagitty <- reactive({
+    req(
+      tweak_preview_visible(),
+      length(nodes_in_dag(rvn$nodes)), 
+      length(edges_in_dag(rve$edges)),
+      input$exposureNode, input$outcomeNode, input$adjustNode
+    )
+    make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode)
   })
   
-  output$downloadButton <- downloadHandler(
-    filename = function() {
-      paste0(
-        "DAG.", 
-        switch(
-          input$downloadType,
-          "dagitty" =,
-          "ggdag" = "rds",
-          "tikz" = "tex",
-          "png" = "png",
-          "pdf" = "pdf"
-        )
-      )
-    },
-    content = function(file) {
-      if (input$downloadType == "pdf") {
-        
-        file.copy(file.path(tikz_cache_dir(), "DAGimageDoc.pdf"), file)
-        
-      } else if (input$downloadType == "png") {
-        
-        file.copy(file.path(tikz_cache_dir(), "DAGimage.png"), file)
-      
-      } else if (input$downloadType == "tikz") {
-        
-        merge_tex_files(
-          file.path(tikz_cache_dir(), "DAGimageDoc.tex"),
-          file.path(tikz_cache_dir(), "DAGimage.tex"),
-          file
-        )
-        
-      } else if (input$downloadType == "dagitty") {
-        
-        gdag <- make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode)
-        
-        saveRDS(gdag, file = file)
-        
-      } else if (input$downloadType == "ggdag") {
-        
-        tidy_dag <- 
-          make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode) %>% 
-          tidy_dagitty()
-        
-        saveRDS(tidy_dag, file = file)
-      }
-    },
-    contentType = NA
+  dag_tidy <- reactive({
+    req(
+      tweak_preview_visible(),
+      length(nodes_in_dag(rvn$nodes)), 
+      length(edges_in_dag(rve$edges)),
+      input$exposureNode, input$outcomeNode, input$adjustNode
+    )
+    make_dagitty(rvn$nodes, rve$edges, input$exposureNode, input$outcomeNode, input$adjustNode) %>% 
+      tidy_dagitty()
+  })
+  
+  # ---- App-based TikZ Preview ----
+  tweak_preview_visible <- callModule(
+    module = dagPreview,
+    id = "tweak_preview",
+    session_dir = SESSION_TEMPDIR,
+    tikz_code_from_app,
+    dag_dagitty,
+    dag_tidy
   )
   
   # ---- TeX Editor ----
   output$texEdit <- renderUI({
-    tikz_lines <- tikz_code()
+    tikz_lines <- tikz_code_from_app()
     
     if (is.null(tikz_lines)) {
       tikz_lines <- "\\\\begin{tikzpicture}[>=latex]\n\\\\end{tikzpicture}"
@@ -952,5 +792,12 @@ server <- function(input, output, session) {
       highlightActiveLine = TRUE
     )
   })
+  
+  latex_preview_visible <- callModule(
+    module = dagPreview,
+    id = "latex_preview",
+    session_dir = SESSION_TEMPDIR,
+    reactive(input$manual_tikz)
+  )
 
 }

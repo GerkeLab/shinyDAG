@@ -15,6 +15,7 @@ library(shinyThings)
 source("R/node.R")
 source("R/edge.R")
 source("R/module/clickpad.R")
+source("R/module/dagPreview.R")
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
