@@ -40,6 +40,12 @@ server <- function(input, output, session) {
       tags$p(class = "text-center", "Loading your shinyDag workspace, please wait."),
       tags$div(class = "gerkelab-spinner")
     ))
+    
+    # clear selected node and text input to try to prevent existing values from
+    # changing the name of the node that gets selected on restore
+    rvn$nodes <- node_unset_attribute(rvn$nodes, names(rvn$nodes), "parent")
+    updateTextInput(session, "node_list_node_name", value = "")
+    
     if (isTRUE(getOption("shinydag.debug", FALSE))) {
       names(state$values) %>%
         purrr::set_names() %>%
