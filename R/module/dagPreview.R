@@ -82,7 +82,7 @@ dagPreview <- function(
   dag_tidy = reactive(NULL)
 ) {
   ns <- session$ns
-  SESSION_TEMPDIR <- paste0(session_dir, "_", sub("-$", "", ns("")))
+  SESSION_TEMPDIR <- file.path(session_dir, sub("-$", "", ns("")))
   
   tikz_cache_dir <- reactiveVal(NULL)
   
