@@ -249,15 +249,11 @@ function(request) {
     ),
     dashboardSidebar(
       sidebarMenu(
+        id = "shinydag_page",
         menuItem("Sketch", tabName = "sketch", icon = icon("share-alt")),
         menuItem("Tweak", tabName = "tweak", icon = icon("sliders")),
         menuItem("LaTeX", tabName = "latex", icon = icon("file-text-o")),
-        menuItem("About", tabName = "about", icon = icon("info")),
-        tags$a(
-          href = "https://gerkelab.com", 
-          target = "_blank", 
-          tags$div(class = "gerkelab-logo")
-        )
+        menuItem("About", tabName = "about", icon = icon("info"))
       )
     ),
     dashboardBody(

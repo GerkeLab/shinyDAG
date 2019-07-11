@@ -53,21 +53,28 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   height: 100px;
   position: absolute;
   bottom: 2%;
-  left: 2%;
+  left: 65px;
   filter: drop-shadow(0 3px 4px rgba(0,0,0,0.2));
-  transition-duration: 0.25s;
+  transition: z-index 0s, left 0.25s ease-in-out, filter 0.25s ease-in-out, opacity 1s ease-in-out;
+  z-index: 1000;
+  opacity: 1;
 }
 
-.gerkelab-logo:hover {
-  transition-property: filter;
-  transition-duration: 0.25s;
+.sidebar-collapse .gerkelab-logo {
+  transition: z-index 0s 0.5s, left 0.25s ease-in-out, filter 0.25s ease-in-out;
+  z-index: 0;
+  left: 2%;
+}
+
+.sidebar-collapse .gerkelab-logo:hover {
   filter: drop-shadow(0 0 1px rgba(0,0,0,0.2));
 }
 
-.sidebar-menu .gerkelab-logo {
-  left: 50%;
-  margin-left: -50px;
-  filter: none;
+@media (max-width: 767px) {
+  .gerkelab-logo {
+    z-index: 0;
+    opacity: 0;
+  }
 }
 
 /* ---- ShinyDAG specific tweaks ---- */
