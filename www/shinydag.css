@@ -88,7 +88,7 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   padding-top: 32px;
 }
 
-#download-buttons {
+.dagpreview-download-ui {
   padding-top: 25px;
 }
 
