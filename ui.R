@@ -161,6 +161,17 @@ function(request) {
       title = "shinyDAG",
       tags$li(
         class = "dropdown",
+        actionLink(
+          inputId = "._bookmark_", 
+          label = "Bookmark",
+          icon = icon("link", lib = "glyphicon"),
+          title = "Bookmark ShinyDAG's state and get a URL for sharing.",
+          `data-toggle` = "tooltip",
+          `data-placement` = "bottom"
+        )
+      ),
+      tags$li(
+        class = "dropdown",
         tags$a(
           href = "https://github.com/gerkelab/shinyDAG/",
           title = "shinyDAG on GitHub",
@@ -288,8 +299,7 @@ function(request) {
                        class = "btn-group",
                        role = "group",
                        id = "download-buttons",
-                       downloadButton("downloadButton"),
-                       bookmarkButton(label = "Bookmark")
+                       downloadButton("downloadButton")
                      )
                    )
                  )

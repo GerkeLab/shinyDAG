@@ -30,6 +30,7 @@ server <- function(input, output, session) {
   onBookmarked(function(url) {
     message("bookmark: ", url)
     showBookmarkUrlModal(url)
+    updateQueryString(url)
   })
   
   onRestore(function(state) {
