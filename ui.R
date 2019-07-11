@@ -94,8 +94,8 @@ components$about <- tagList(
   p(
     "All code is available on GitHub at",
     tags$a(
-      href = "https://github.com/GerkeLab/ShinyDAG",
-      "GerkeLab/ShinyDag"
+      href = "https://github.com/GerkeLab/shinyDAG",
+      "GerkeLab/shinyDag"
     )
   ),
   p(
@@ -223,7 +223,7 @@ function(request) {
           inputId = "._bookmark_", 
           label = "Bookmark",
           icon = icon("link", lib = "glyphicon"),
-          title = "Bookmark ShinyDAG's state and get a URL for sharing.",
+          title = "Bookmark shinyDAG's state and get a URL for sharing.",
           `data-toggle` = "tooltip",
           `data-placement` = "bottom"
         )
@@ -299,7 +299,7 @@ function(request) {
         tabItem(
           tabName = "about",
           box(
-            title = "About ShinyDAG",
+            title = "About shinyDAG",
             width = 12,
             components$about
           )
