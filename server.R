@@ -706,16 +706,22 @@ server <- function(input, output, session) {
     endZ <- "\\end{tikzpicture}"
     pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
     
-    nodePts <- tidyr::crossing(x = 1:7, y = 1:7) %>%
-      left_join(
-        nodeFrame,
-        by = c("x", "y")
-      )
+    nodePts <- node_frame(rvn$nodes)
     
-    x_min <- nodePts %>% filter(!is.na(hash)) %>% pull(x) %>% min()
-    y_max <- nodePts %>% filter(!is.na(hash)) %>% pull(y) %>% max()
+    d_x <- min(nodePts$x) - 1L
+    d_y <- min(nodePts$y) - 1L
+  
+    nodePts$x <- nodePts$x - d_x
+    nodePts$y <- nodePts$y - d_y
     
-    nodeLines <- dag_node_lines(nodePts)
+    y_max <- max(nodePts$y)
+    
+    nodeLines <- nodePts %>% 
+      tidyr::complete(
+        x = seq(min(nodePts$x), max(nodePts$x)), 
+        y = seq(min(nodePts$y), max(nodePts$y))
+      ) %>% 
+      dag_node_lines()
     
     edgeLines <- character()
     
@@ -724,14 +730,14 @@ server <- function(input, output, session) {
       # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
       edgePts <- debounce(edge_points_rv, 5000)()
       
-      tikz_point <- function(x, y, x_min, y_max) {
-        glue::glue("(m-{y_max - y + 1}-{x - x_min + 1})")
+      tikz_point <- function(x, y, d_x, d_y, y_max) {
+        glue::glue("(m-{y_max - (y - d_y) + 1}-{x - d_x})")
       }
       
       edgePts <- edgePts %>%
         mutate(
-          parent = tikz_point(from.x, from.y, x_min, y_max),
-          child = tikz_point(to.x, to.y, x_min, y_max),
+          parent = tikz_point(from.x, from.y, d_x, d_y, y_max),
+          child = tikz_point(to.x, to.y, d_x, d_y, y_max),
           edgeLine = glue::glue(
             "{parent} edge [>={input$arrowShape}, bend left = {edgePts$angle}, ",
             "color = {edgePts$color},{edgePts$lineT},{edgePts$lty}] node[auto] {{$~$}} {child}"

@@ -92,7 +92,8 @@ edge_points <- function(edges, nodes, push_by = 0) {
       from.y = from.y + push_by * d_y,
       to.x = to.x - push_by * d_x,
       to.y = to.y - push_by * d_y
-    )
+    ) %>% 
+    select(-d_x, -d_y)
 }
 
 edge_toggle <- function(edges, from_hash, to_hash) {
