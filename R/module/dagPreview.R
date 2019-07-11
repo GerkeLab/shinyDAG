@@ -57,7 +57,7 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
         uiOutput(ns("downloadType_helptext"))
       ),
       tags$div(
-        class = class_3_col,
+        class = paste(class_3_col, "dagpreview-download-ui"),
         div(
           class = "btn-group",
           role = "group",
