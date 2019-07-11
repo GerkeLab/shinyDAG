@@ -114,35 +114,62 @@ clickpad <- function(
   })
   
   create_node_annotations <- function(x, y, name, hash, ...) {
-    set_color <- function(default, not_in_dag = NULL, 
-                          primary = NULL, secondary = NULL, 
-                          exposure = NULL, outcome = NULL, adjusted = NULL) {
-      is_not_in_dag <- x < 0
-      is_primary <- !is.null(node_primary()) && hash %in% node_primary()
-      is_secondary <- !is.null(node_secondary()) && hash %in% node_secondary()
-      is_adjusted <- !is.null(node_is_adjusted()) && hash %in% node_is_adjusted()
-      is_exposure <- !is.null(node_exposure()) && hash %in% node_exposure()
-      is_outcome <- !is.null(node_outcome()) && hash %in% node_outcome()
+    set_color <- function(
+      default, not_in_dag = NULL, 
+      primary = NULL, secondary = NULL, 
+      exposure = NULL, outcome = NULL, adjusted = NULL,
+      apply_order = c("primary", "not_in_dag", "adjusted", "exposure", "outcome", "secondary")
+    ) {
+      applicable_states <- c(
+        "primary" = !is.null(node_primary()) && hash %in% node_primary(),
+        "secondary" = !is.null(node_secondary()) && hash %in% node_secondary(),
+        "adjusted" = !is.null(node_is_adjusted()) && hash %in% node_is_adjusted(),
+        "exposure" = !is.null(node_exposure()) && hash %in% node_exposure(),
+        "outcome" = !is.null(node_outcome()) && hash %in% node_outcome(),
+        "not_in_dag" = x < 0
+      )
       
-      color <- if (is_primary) { 
-        primary
-      } else if (is_not_in_dag) { 
-        not_in_dag
-      } else if (is_secondary) { 
-        secondary
-      } else if (is_adjusted) { 
-        adjusted
-      } else if (is_exposure) {
-        exposure
-      } else if (is_outcome) {
-        outcome
-      }
+      applicable_states <- applicable_states[applicable_states]
+      if (!length(applicable_states)) return(default)
+      
+      applicable_states <- applicable_states[apply_order]
+      applicable_states <- applicable_states[!is.na(applicable_states)]
+      if (!length(applicable_states)) return(default)
+      
+      color <- switch(
+        names(applicable_states)[1],
+        primary = primary,
+        secondary = secondary,
+        adjusted = adjusted,
+        outcome = outcome,
+        exposure = exposure,
+        not_in_dag = not_in_dag,
+        default
+      )
+      
       color %||% default
     }
     
-    background_color <- set_color("#FFFFFF", "#FDFDFD", primary = "#F6E3D1")
-    font_color <- set_color("#000000", "#666666", primary = "#D3751C", exposure = "#418c7a", outcome = "#ba2d0b")
-    border_color <- set_color("#EDEDED", "#AAAAAA", primary = list(NULL), adjusted = "#1c2d3f")
+    background_color <- set_color(
+      default = "#FFFFFF", 
+      not_in_dag = "#FDFDFD", 
+      primary = "#F6E3D1"
+    )
+    font_color <- set_color(
+      default = "#000000", 
+      not_in_dag = "#666666", 
+      primary = "#D3751C", 
+      exposure = "#418c7a", 
+      outcome = "#ba2d0b",
+      apply_order = c("not_in_dag", "exposure", "outcome", "primary")
+    )
+    border_color <- set_color(
+      default = "#EDEDED", 
+      not_in_dag = "#AAAAAA", 
+      primary = list(NULL), 
+      adjusted = "#1c2d3f",
+      apply_order = c("not_in_dag", "adjusted", "primary")
+    )
       
     list(text = name, 
          node_hash = hash, 
