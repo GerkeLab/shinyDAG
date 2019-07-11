@@ -426,28 +426,28 @@ server <- function(input, output, session) {
   })
   
   # ---- DAG Diagnostics ----
-  g_dagitty <- reactive({
-    req(length(rve$edges) > 0)
-    edges <- edge_frame(rve$edges, rvn$nodes)
-    dagitty_paths <- edges %>%
-      glue::glue_data("{from}->{to};") %>%
-      glue::glue_collapse()
-    dagitty_code <- glue::glue("dag {{ {dagitty_paths} }}")
-    debug_input(dagitty_code, "daggity_code")
+  make_dagitty <- function(nodes, edges, exposure = NULL, outcome = NULL, adjusted = NULL) {
+    dagitty_edges <- edge_frame(edges, nodes) %>% 
+      glue::glue_data("{from_name} -> {to_name}") %>% 
+      paste(collapse = "; ")
     
-    dagitty(dagitty_code)
-  })
-  
-  dagitty_apply <- function(gd, nodes, exposures = NULL, outcomes = NULL, adjusted = NULL) {
-    nodes <- invertNames(node_names(nodes))
-    if (!is.null(exposures)) exposures(gd) <- nodes[exposures]
-    if (!is.null(outcomes)) outcomes(gd) <- nodes[outcomes]
-    if (!is.null(adjusted)) adjustedNodes(gd) <- nodes[adjusted]
-    gd
+    dagitty_code <- glue::glue("dag {{ {dagitty_edges} }}")
+    debug_input(dagitty_code, "dagitty_code")
+    
+    gdag <- dagitty(dagitty_code)
+    
+    if (isTruthy(exposure)) exposures(gdag) <- node_name_from_hash(nodes, exposure)
+    if (isTruthy(outcome))  outcomes(gdag) <- node_name_from_hash(nodes, outcome)
+    if (isTruthy(adjusted)) adjustedNodes(gdag) <- node_name_from_hash(nodes, adjusted)
+    
+    gdag
   }
   
   dagitty_open_exp_outcome_paths <- reactive({
-    req(rve$edges)
+    req(
+      length(nodes_in_dag(rvn$nodes)),
+      length(edges_in_dag(rve$edges, rvn$nodes))
+    )
     
     # need both exposure and outcome node
     requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
@@ -460,13 +460,13 @@ server <- function(input, output, session) {
     )
     
     nodes <- invertNames(node_names(rvn$nodes))
-    gd <- g_dagitty() %>%
-      dagitty_apply(
-        rvn$nodes,
-        exposures = input$exposureNode,
-        outcomes = input$outcomeNode,
-        adjusted = input$adjustNode
-      )
+    gd <- make_dagitty(
+      edges = rve$edges, 
+      nodes = rvn$nodes,
+      exposure = input$exposureNode,
+      outcome = input$outcomeNode,
+      adjusted = input$adjustNode
+    )
     
     exp_outcome_paths <- paths(
       gd,
@@ -486,7 +486,7 @@ server <- function(input, output, session) {
   }
   
   output$openExpOutcomePaths <- renderUI({
-    validate(need(length(rve$edges) > 0, "Please add at least one edge"))
+    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
     
     open_paths <- dagitty_open_exp_outcome_paths()
     
@@ -541,12 +541,12 @@ server <- function(input, output, session) {
     }
   }
   
-  ui_edge_controls_row <- function(hash, from, to, ...) {
+  ui_edge_controls_row <- function(hash, from_name, to_name, ...) {
     col_4 <- function(x) {
       tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
     }
     title_row <- function(x) tags$div(class = "col-xs-12", tags$h3(x))
-    edge_label <- paste0(from, "&nbsp;&#8594; ", to)
+    edge_label <- paste0(from_name, "&nbsp;&#8594; ", to_name)
     
     tagList(
       fluidRow(
@@ -609,7 +609,7 @@ server <- function(input, output, session) {
   # Watch edge UI inputs and update rve$edges when inputs change
   observe({
     req(length(rve$edges) > 0, grepl("^angle_", names(input)))
-    rv_edges <- rve$edges
+    rv_edges <- isolate(rve$edges)
     edge_ui <- tibble(
       inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
     ) %>%
@@ -624,10 +624,11 @@ server <- function(input, output, session) {
       if (!edge$hash %in% names(rv_edges)) next
       this_edge <- edge[setdiff(names(edge), "hash")]
       for (prop in names(this_edge)) {
-        rve$edges[[edge$hash]][[prop]] <- this_edge[[prop]]
+        rv_edges[[edge$hash]][[prop]] <- this_edge[[prop]]
       }
     }
-    debug_input(rv_edges, "rve$edges after aes update")
+    debug_input(bind_rows(rv_edges, .id = "hash"), "rve$edges after aes update")
+    rve$edges <- rv_edges
   }, priority = -50)
   
   # ---- Prepare DAG from App ----
@@ -707,7 +708,7 @@ server <- function(input, output, session) {
           )
         )
       
-      debug_input(select(edgePts, hash, matches("^(from|to)"), parent, child, edgeLine), "edgeLines")
+      debug_input(select(edgePts, hash, matches("^(from|to)_name"), parent, child, edgeLine), "edgeLines")
       edgeLines <- edgePts$edgeLine
     }
     
@@ -726,20 +727,6 @@ server <- function(input, output, session) {
       g <- g + edge_edges(edges, nodes)
     }
     g
-  }
-  
-  make_dagitty <- function(nodes, edges, exposure = NULL, outcome = NULL, adjusted = NULL) {
-    dagitty_edges <- edge_frame(edges, nodes) %>% 
-      glue::glue_data("{from} -> {to}") %>% 
-      paste(collapse = "; ")
-    
-    gdag <- dagitty(glue::glue("dag {{ {dagitty_edges} }}"))
-    
-    if (isTruthy(exposure)) exposures(gdag) <- exposure
-    if (isTruthy(outcome))  outcomes(gdag) <- outcome
-    if (isTruthy(adjusted)) adjustedNodes(gdag) <- adjusted
-    
-    gdag
   }
 
   dag_dagitty <- reactive({

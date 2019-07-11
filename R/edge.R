@@ -7,23 +7,36 @@ edge_key <- function(x, y) digest::digest(c(x, y))
 edge_frame <- function(edges, nodes, ...) {
   dots <- rlang::enexprs(...)
   
-  all_edges <- bind_rows(edges) %>%
-    mutate(hash = names(edges)) %>%
-    tidyr::gather(position, node_hash, from:to)
+  dag_edges <- edges_in_dag(edges, nodes)
   
-  all_edges %>%
-    filter(hash %in% edges_in_dag(edges, nodes)) %>%
+  if (!length(dag_edges)) return(tibble())
+  
+  ensure_exists <- function(x, ...) {
+    cols <- list(...)
+    stopifnot(!is.null(names(cols)), all(nzchar(names(cols))))
+    for (col in names(cols)) {
+      x[[col]] <- x[[col]] %||% cols[[col]]
+    }
+    x
+  }
+  
+  edges %>%
+    bind_rows(.id = "hash") %>% 
+    filter(hash %in% edges_in_dag(edges, nodes)) %>% 
+    tidyr::nest(-from) %>% 
     left_join(
-      select(node_frame(nodes), hash, name),
-      by = c("node_hash" = "hash")
-    ) %>%
-    tidyr::gather(var, value, node_hash, name) %>%
-    mutate(
-      var = sub("node|name", "", var),
-      var = paste0(position, var)
-    ) %>%
-    select(-position) %>%
-    tidyr::spread(var, value) %>%
+      nodes %>% node_frame() %>% select(from = hash, from_name = name),
+      by = "from"
+    ) %>% 
+    tidyr::unnest() %>% 
+    tidyr::nest(-to) %>% 
+    left_join(
+      nodes %>% node_frame() %>% select(to = hash, to_name = name),
+      by = "to"
+    ) %>% 
+    tidyr::unnest() %>% 
+    select(hash, names(edges[[1]]), everything()) %>% 
+    ensure_exists(angle = 0L, color = "black", lty = "solid", lineT = "thin") %>% 
     mutate(!!!dots)
 }
 
@@ -57,21 +70,20 @@ edge_points <- function(edges, nodes, push_by = 0) {
   
   if (!length(dag_edges)) return(tibble())
   
-  ep <- 
-    edges %>% 
-    purrr::map_dfr(~ ., .id = "hash") %>% 
-    tidyr::gather(end, node_hash, -hash) %>%
-    left_join(node_frame(nodes), by = c("node_hash" = "hash")) %>%
-    filter(hash %in% dag_edges)
-  
-  if (!nrow(ep)) return(tibble())
-  
-  ep %>% 
-    select(hash, end, x, y) %>% 
-    tidyr::gather(var, pt, x:y) %>%
-    mutate(var = paste(end, var, sep = ".")) %>%
-    select(-end) %>%
-    tidyr::spread(var, pt) %>%
+  edge_frame(edges, nodes) %>% 
+    tidyr::nest(-from) %>% 
+    left_join(
+      nodes %>% node_frame() %>% select(from = hash, from.x = x, from.y = y),
+      by = "from"
+    ) %>% 
+    tidyr::unnest() %>% 
+    tidyr::nest(-to) %>% 
+    left_join(
+      nodes %>% node_frame() %>% select(to = hash, to.x = x, to.y = y),
+      by = "to"
+    ) %>% 
+    tidyr::unnest() %>% 
+    select(hash, names(edges[[1]]), everything()) %>% 
     mutate(
       d_x = to.x - from.x,
       d_y = to.y - from.y,
