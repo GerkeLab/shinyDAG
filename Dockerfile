@@ -1,27 +1,4 @@
-# shiny-verse:3.6.0
-FROM rocker/shiny:3.5.3
-
-RUN apt-get update -qq && apt-get -y --no-install-recommends install \
-  libxml2-dev \
-  libcairo2-dev \
-  libsqlite3-dev \
-  libmariadbd-dev \
-  libmariadb-client-lgpl-dev \
-  libpq-dev \
-  libssl-dev \
-  libcurl4-openssl-dev \
-  libssh2-1-dev \
-  unixodbc-dev \
-  && install2.r --error \
-    --deps TRUE \
-    tidyverse \
-    dplyr \
-    devtools \
-    formatR \
-    remotes \
-    selectr \
-    caTools \
-    BiocManager
+FROM rocker/shiny-verse:3.5.3
 
 LABEL maintainer="Travis Gerke (Travis.Gerke@moffitt.org)"
 
@@ -41,7 +18,7 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
   && rm -rf /var/lib/apt/lists/ \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
-RUN install2.r --error --deps TRUE \
+RUN install2.r --error \
   shinyAce \
   shinydashboard \
   shinyWidgets \
@@ -72,7 +49,7 @@ RUN install2.r --error tinytex \
   && echo "PATH=${PATH}" >> /usr/local/lib/R/etc/Renviron \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
   
-RUN install2.r --error --deps TRUE shinyjs \
+RUN install2.r --error shinyjs \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 RUN install2.r --error plotly shinycssloaders \
