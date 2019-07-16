@@ -78,7 +78,7 @@ RUN install2.r --error --deps TRUE shinyjs \
 RUN install2.r --error plotly shinycssloaders \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
-RUN installGithub.r gadenbuie/shinyThings@fb6f03f9f26e9f1741f67fc93ade53867d8fd4d9 \
+RUN installGithub.r gadenbuie/shinyThings@4e8becb2972aa2f7f1960da6e5fe6ad39aeceda0 \
   && rm -rf /tmp/downloaded_packages/ /tmp/*.rds
 
 ARG SHINY_APP_IDLE_TIMEOUT=600
