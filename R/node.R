@@ -115,7 +115,7 @@ node_frame <- function(nodes, full = FALSE) {
   if (full) {
     return(x)
   }
-  filter(x, !is.na(x))
+  filter(x, in_dag)
 }
 
 node_vertices <- function(nodes) {

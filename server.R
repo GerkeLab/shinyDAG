@@ -730,16 +730,14 @@ server <- function(input, output, session) {
   
   tikz_code_from_app <- reactive({
     req(rvn$nodes)
-    nodeFrame <- node_frame(rvn$nodes)
-    req(nrow(nodeFrame) > 0)
+    nodePts <- node_frame(rvn$nodes)
+    req(nrow(nodePts) > 0)
     
     styleZ <- "\\tikzset{ module/.style={draw, rectangle},
       label/.style={ } }"
     startZ <- "\\begin{tikzpicture}[>=latex]"
     endZ <- "\\end{tikzpicture}"
     pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
-    
-    nodePts <- node_frame(rvn$nodes)
     
     d_x <- min(nodePts$x) - 1L
     d_y <- min(nodePts$y) - 1L
@@ -758,7 +756,7 @@ server <- function(input, output, session) {
     
     edgeLines <- character()
     
-    if (length(rve$edges)) {
+    if (length(edges_in_dag(rve$edges, rvn$nodes))) {
       # edge_points_rv() is a reactive that gathers values from aesthetics UI
       # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
       edgePts <- debounce(edge_points_rv, 5000)()
