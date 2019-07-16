@@ -67,13 +67,34 @@ server <- function(input, output, session) {
   # ---- Reactive Values ----
   rve <- reactiveValues(edges = list())
   rvn <- reactiveValues(nodes = list())
-  
-  
+
   # rve$edges is a named list, e.g. for hash(A) -> hash(B):
   # rve$edges[edge_key(hash(A), hash(B))] = list(from = hash(A), to = hash(B))
   
   # rvn$nodes is a named list where name is a hash
   # rvn$nodes$abcdefg = list(name, x, y)
+  
+  # ---- Reactive Values Undo/Redo ----
+  rv_undo_state <- shinyThings::undoHistory(
+    id = "undo_rv", 
+    value = reactive({
+      req(length(rvn$nodes) > 0)
+      list(
+        nodes = rvn$nodes,
+        edges = rve$edges
+      )
+    })
+  )
+  
+  observe({
+    req(!is.null(rv_undo_state()))
+    
+    rv_state <- rv_undo_state()
+    debug_input(rv_state$nodes, "undo/redo - new nodes")
+    debug_input(rv_state$edges, "undo/redo - new edges")
+    rvn$nodes <- rv_state$nodes
+    rve$edges <- rv_state$edges
+  }, priority = 1000)
 
   # ---- Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
@@ -237,6 +258,7 @@ server <- function(input, output, session) {
     req(clickpad_new_locations())
     
     new <- clickpad_new_locations()
+    debug_input(new, "clickpad_new_locations()")
     
     rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
   })

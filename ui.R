@@ -132,12 +132,29 @@ components$build <- box(
       components$toolbar$node_list_name
     )
   ),
-  fluidRow(column(width = 12, uiOutput("node_list_helptext"))),
+  fluidRow(
+    column(
+      width = 12,
+      tags$div(
+        class = "pull-left",
+        uiOutput("node_list_helptext")
+      ),
+      shinyThings::undoHistoryUI(
+        id = "undo_rv", 
+        class = "pull-right",
+        back_text = "Undo",
+        fwd_text = "Redo"
+      )
+    )
+  ),
   fluidRow(
     column(
       width = 12,
       clickpad_UI("clickpad", height = "600px", width = "100%")
     )
+  ),
+  if (getOption("shinydag.debug", FALSE)) fluidRow(
+    column(width = 12, shinyThings::undoHistoryUI_debug("undo_rv"))
   ),
   fluidRow(
     tags$div(
