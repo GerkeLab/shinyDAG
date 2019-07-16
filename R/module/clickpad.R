@@ -261,7 +261,7 @@ clickpad <- function(
     annot_event <- event[grepl("^annotations\\[\\d+\\]\\.[xy]$", names(event))]
     annot_index <- sub(".+\\[(\\d+)\\].+", "\\1", names(annot_event)[1]) %>% as.integer()
     
-    if (!is.integer(annot_index)) return()
+    if (is.na(annot_index) || !is.integer(annot_index)) return()
     
     if (length(annotations()) <= annot_index) {
       stop("An error occurred, unable to match plotly update to correct node")
