@@ -249,6 +249,8 @@ clickpad <- function(
   
   redraw_plot <- reactiveVal(Sys.time())
   
+  new_coords_lag <- list(hash = NA_character_, x = NA_real_, y = NA_real_)
+  
   new_locations <- reactive({
     req(annotations())
     ## https://stackoverflow.com/questions/54990350/extract-xyz-coordinates-from-draggable-shape-in-plotly-ternary-r-shiny
@@ -269,17 +271,36 @@ clickpad <- function(
     
     req(!is.null(node_hash))
     
-    new_x <- annot_event[grepl("\\.x", names(annot_event))] %>% unlist()
-    new_y <- annot_event[grepl("\\.y", names(annot_event))] %>% unlist()
+    new_x <- annot_event[grepl("\\.x", names(annot_event))] %>% unlist() %>% unname()
+    new_x <- if (new_x > 0) round(new_x, 0) else new_x
+    
+    new_y <- annot_event[grepl("\\.y", names(annot_event))] %>% unlist() %>% unname()
+    new_y <- if (new_x > 0) round(new_y, 0) else new_y
+    
+    i_nodes <- isolate(nodes())
+    current_pos <- i_nodes[[node_hash]][c("x", "y")] %>% unlist() %>% unname()
+    
+    new_coords <- list(
+      hash = node_hash,
+      x = new_x,
+      y = new_y
+    )
+
+    if (identical(c(new_coords$x, new_coords$y), current_pos)) {
+      # No change in current node position
+      return()
+    }
+    
+    if (identical(new_coords, new_coords_lag)) {
+      # The plotly_redraw may not have been a result of annotation position change
+      return()
+    }
+    
+    new_coords_lag <<- new_coords
     
     # cli::cat_line("new_x: ", new_x)
     # cli::cat_line("new_y: ", new_y)
-    
-    list(
-      hash = node_hash,
-      x = if (new_x > 0) round(new_x, 0) else new_x,
-      y = if (new_x > 0) round(new_y, 0) else new_y
-    )
+    new_coords
   })
   
   return(reactive(new_locations()))
