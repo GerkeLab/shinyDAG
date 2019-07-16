@@ -79,9 +79,20 @@ server <- function(input, output, session) {
     id = "undo_rv", 
     value = reactive({
       req(length(rvn$nodes) > 0)
+      
+      node_params <- c("name", "x", "y", "parent", "exposure", "outcome", "adjusted")
+      nodes <- rvn$nodes %>% 
+        purrr::map(`[`, node_params) %>% 
+        purrr::map(purrr::compact)
+      
+      edge_params <- c("from", "to")
+      edges <- rve$edges %>% 
+        purrr::map(`[`, edge_params) %>% 
+        purrr::map(purrr::compact)
+      
       list(
-        nodes = rvn$nodes,
-        edges = rve$edges
+        nodes = nodes,
+        edges = edges
       )
     })
   )
