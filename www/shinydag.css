@@ -78,6 +78,14 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   }
 }
 
+.disable-buttons {
+  pointer-events: none;
+}
+
+.disabled {
+  pointer-events: none;
+}
+
 /* ---- ShinyDAG specific tweaks ---- */
 
 #edge_aes_ui label {
