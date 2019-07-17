@@ -663,7 +663,8 @@ server <- function(input, output, session) {
   output$edge_aes_ui <- renderUI({
     req(input$shinydag_page == "tweak")
     req(length(isolate(rve$edges)) > 0)
-    rv_edge_frame <- edge_frame(isolate(rve$edges), isolate(rvn$nodes))
+    rv_edge_frame <- edge_frame(isolate(rve$edges), isolate(rvn$nodes)) %>% 
+      arrange(from_name, to_name)
     
     tagList(
       purrr:::pmap(rv_edge_frame, ui_edge_controls_row)
