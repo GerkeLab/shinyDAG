@@ -1,7 +1,7 @@
 
 # Server ------------------------------------------------------------------
 server <- function(input, output, session) {
-  # ---- Session Temp Directory ----
+  # ---- Global - Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
   dir.create(SESSION_TEMPDIR, showWarnings = FALSE)
   onStop(function() {
@@ -10,7 +10,7 @@ server <- function(input, output, session) {
   })
   message("Using session tempdir: ", SESSION_TEMPDIR)
   
-  # ---- Bookmarking ----
+  # ---- Global - Bookmarking ----
   onBookmark(function(state) {
     state$values$rvn <- list()
     state$values$rvn$nodes <- rvn$nodes
@@ -64,7 +64,7 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "adjustNode", selected = state$values$sel$adjustNode)
   })
   
-  # ---- Reactive Values ----
+  # ---- Global - Reactive Values ----
   rve <- reactiveValues(edges = list())
   rvn <- reactiveValues(nodes = list())
 
@@ -74,7 +74,7 @@ server <- function(input, output, session) {
   # rvn$nodes is a named list where name is a hash
   # rvn$nodes$abcdefg = list(name, x, y)
   
-  # ---- Reactive Values Undo/Redo ----
+  # ---- Sketch - Reactive Values Undo/Redo ----
   rv_undo_state <- shinyThings::undoHistory(
     id = "undo_rv", 
     value = reactive({
@@ -107,7 +107,7 @@ server <- function(input, output, session) {
     rve$edges <- rv_state$edges
   }, priority = 1000)
 
-  # ---- Node Controls ----
+  # ---- Sketch - Node Controls ----
   node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
   node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
   
@@ -193,7 +193,7 @@ server <- function(input, output, session) {
     shinyjs::hide("node_list_node_delete")
   })
   
-  # ---- Help Text ----
+  # ---- Sketch - Help Text ----
   output$node_list_helptext <- renderUI({
     s_node <- node_list_selected_node()
     no_nodes <- length(rvn$nodes) == 0
@@ -227,7 +227,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- Click Pad ----
+  # ---- Sketch - Edge Help Text ----
   req_nodes <- function() {
     if (!length(rvn$nodes)) {
       cat("\n No Nodes!")
@@ -263,6 +263,7 @@ server <- function(input, output, session) {
     tag(html$tag, list(class = html$class, html$inner))
   })
   
+  # ---- Sketch - Clickpad ----
   clickpad_new_locations <- callModule(
     clickpad, "clickpad", 
     nodes = reactive(rvn$nodes),
@@ -278,8 +279,9 @@ server <- function(input, output, session) {
     rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
   })
   
-  # Watch clickpad click events
+  # ---- Sketch - Clickpad - Click Events ----
   observe({
+    I("clickpad click event handler")
     clicked_annotation <- event_data("plotly_clickannotation", source = "clickpad", priority = "event")
     req(clicked_annotation[["_input"]]$node_hash)
     
@@ -341,7 +343,9 @@ server <- function(input, output, session) {
     rvn$nodes <- nodes
   })
   
+  # ---- Sketch - Clickpad - Click Type Buttons ----
   observe({
+    I("clickpad click action reset to select?")
     reset_clickpad_action <- function() {
       updateRadioSwitchButtons("clickpad_click_action", "parent")
       invisible()
@@ -380,7 +384,7 @@ server <- function(input, output, session) {
     if (!valid) updateRadioSwitchButtons("clickpad_click_action", "parent")
   })
   
-  # ---- Node - Options ----
+  # ---- Sketch - Node Options ----
   update_node_options <- function(
     nodes,
     inputId,
@@ -479,7 +483,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- DAG Diagnostics ----
+  # ---- DAG - Functions ----
   make_dagitty <- function(nodes, edges, exposure = NULL, outcome = NULL, adjusted = NULL) {
     dagitty_edges <- edge_frame(edges, nodes) %>% 
       glue::glue_data("{from_name} -> {to_name}") %>% 
@@ -497,6 +501,30 @@ server <- function(input, output, session) {
     gdag
   }
   
+  dagitty_open_paths <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
+    gd <- make_dagitty(
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
+    )
+    
+    exp_outcome_paths <- paths(
+      gd,
+      Z = adjusted %??% unname(node_names[adjusted])
+    )
+    
+    exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
+  }
+  
+  dagitty_format_paths <- function(paths) {
+    HTML(paste0(
+      "<pre><code>",
+      paste(trimws(paths), collapse = "\n"),
+      "\n</code></pre>"
+    ))
+  }
+  
+  # ---- Sketch - DAG - Open Exp/Outcome Paths ----
   dagitty_open_exp_outcome_paths <- reactive({
     req(
       length(nodes_in_dag(rvn$nodes)),
@@ -519,29 +547,6 @@ server <- function(input, output, session) {
     )
   })
   
-  dagitty_open_paths <- function(nodes, edges, exposure, outcome, adjusted) {
-    node_names <- invertNames(node_names(nodes))
-    gd <- make_dagitty(
-      edges = edges, nodes = nodes,
-      exposure = exposure, outcome = outcome, adjusted = adjusted
-    )
-    
-    exp_outcome_paths <- paths(
-      gd,
-      Z = adjusted %??% unname(node_names[adjusted])
-    )
-    
-    exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
-  }
-  
-  dagitty_format_paths <- function(paths) {
-    HTML(paste0(
-      "<pre><code>",
-      paste(trimws(paths), collapse = "
-"),
-      "\n</code></pre>"
-    ))
-  }
   
   output$openExpOutcomePaths <- renderUI({
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
@@ -570,7 +575,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- Edit Aesthetics ----
+  # ---- Tweak - Edit Aesthetics ----
   
   # The input for angles (here for easy refactoring or future changes)
   selectDegree <- function(inputId, label = "Degree", min = -180, max = 180, by = 15, value = 0, ...) {
@@ -700,8 +705,7 @@ server <- function(input, output, session) {
     rve$edges <- rv_edges
   }, priority = -50)
   
-  # ---- Prepare DAG from App ----
-
+  # ---- Global - TikZ Code ----
   edge_points_rv <- reactive({
     req(length(rve$edges) > 0)
     ep <- edge_points(rve$edges, rvn$nodes)
@@ -801,6 +805,7 @@ server <- function(input, output, session) {
     g
   }
 
+  # ---- Tweak - dagitty DAG ----
   dag_dagitty <- reactive({
     req(
       tweak_preview_visible(),
@@ -822,7 +827,7 @@ server <- function(input, output, session) {
       tidy_dagitty()
   })
   
-  # ---- App-based TikZ Preview ----
+  # ---- Tweak - Preview ----
   tweak_preview_visible <- callModule(
     module = dagPreview,
     id = "tweak_preview",
@@ -835,7 +840,7 @@ server <- function(input, output, session) {
     dag_tidy
   )
   
-  # ---- TeX Editor ----
+  # ---- LaTeX - Editor ----
   output$texEdit <- renderUI({
     tikz_lines <- tikz_code_from_app()
     
