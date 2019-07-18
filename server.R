@@ -390,20 +390,12 @@ server <- function(input, output, session) {
     inputId,
     updateFn,
     none_choice = TRUE,
-    ...,
-    toggle = TRUE
+    ...
   ) {
     available_choices <- c("None" = "", node_names(nodes))
     if (!none_choice) available_choices <- available_choices[-1]
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
     if (!length(s_choice) && none_choice) s_choice <- ""
-    
-    if (toggle) {
-      shinyjs::toggleState(
-        inputId,
-        condition = length(available_choices) - as.integer(none_choice) > 0
-      )
-    }
     
     updateFn(
       session,
@@ -418,20 +410,17 @@ server <- function(input, output, session) {
     update_node_options(
       rvn$nodes %>% purrr::keep(~ .$x >= 0), 
       "adjustNode", 
-      updateSelectizeInput, 
-      toggle = TRUE
+      updateSelectizeInput
     )
     update_node_options(
       rvn$nodes %>% purrr::keep(~ .$x >= 0), 
       "exposureNode", 
-      updateSelectInput, 
-      toggle = TRUE
+      updateSelectInput
     )
     update_node_options(
       rvn$nodes %>% purrr::keep(~ .$x >= 0), 
       "outcomeNode", 
-      updateSelectInput, 
-      toggle = TRUE
+      updateSelectInput
     )
   })
   
