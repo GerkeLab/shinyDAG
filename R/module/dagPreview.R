@@ -79,7 +79,8 @@ dagPreview <- function(
   session_dir, 
   tikz_code, 
   dag_dagitty = reactive(NULL), 
-  dag_tidy = reactive(NULL)
+  dag_tidy = reactive(NULL),
+  has_edges = reactive(FALSE)
 ) {
   ns <- session$ns
   SESSION_TEMPDIR <- file.path(session_dir, sub("-$", "", ns("")))
@@ -148,7 +149,7 @@ dagPreview <- function(
       return(helpText("Please preview DAG to enable downloads"))
     }
     
-    if (!is_tikz_download && !nrow(edge_frame(rve$edges, rvn$nodes))) {
+    if (!is_tikz_download && !has_edges()) {
       shinyjs::disable("downloadButton")
       return(helpText("Please add at least one edge to the DAG"))
     }
