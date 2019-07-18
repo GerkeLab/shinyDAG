@@ -193,6 +193,7 @@ server <- function(input, output, session) {
     shinyjs::hide("node_list_node_delete")
   })
   
+  # ---- Help Text ----
   output$node_list_helptext <- renderUI({
     s_node <- node_list_selected_node()
     no_nodes <- length(rvn$nodes) == 0
@@ -218,7 +219,10 @@ server <- function(input, output, session) {
     } else if (input$clickpad_click_action == "child") {
       helpText(
         "Click on a node label to draw or remove a causal arrow from", 
-        tags$strong(node_name_from_hash(rvn$nodes, node_list_selected_node()))
+        tags$strong(node_name_from_hash(rvn$nodes, node_list_selected_node())),
+        "or click",
+        tags$strong(node_name_from_hash(rvn$nodes, node_list_selected_node())),
+        "again to deselect"
       )
     }
   })
