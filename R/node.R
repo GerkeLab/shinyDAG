@@ -46,8 +46,8 @@ node_names <- function(nodes, all = FALSE) {
   if (all) {
     return(x)
   }
-  has_position <- sapply(nodes, function(x) !is.na(x$x))
-  x[has_position]
+  in_dag <- sapply(nodes, function(n) n$x >= 0)
+  x[in_dag]
 }
 
 node_name_from_hash <- function(nodes, hash) {

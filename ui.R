@@ -159,21 +159,15 @@ components$build <- box(
   fluidRow(
     tags$div(
       class = class_3_col,
-      shinyjs::disabled(
-        selectInput("exposureNode", "Exposure", choices = c("None" = ""), width = "100%")
-      )
+      selectInput("exposureNode", "Exposure", choices = c("None" = ""), width = "100%")
     ),
     tags$div(
       class = class_3_col,
-      shinyjs::disabled(
-        selectInput("outcomeNode", "Outcome", choices = c("None" = ""), width = "100%")
-      )
+      selectInput("outcomeNode", "Outcome", choices = c("None" = ""), width = "100%")
     ),
     tags$div(
       class = class_3_col,
-      shinyjs::disabled(
-        selectizeInput("adjustNode", "Adjust for...", choices = c("None" = ""), width = "100%", multiple = TRUE)
-      )
+      selectizeInput("adjustNode", "Adjust for...", choices = c("None" = ""), width = "100%", multiple = TRUE)
     )
   ),
   fluidRow(
