@@ -151,9 +151,9 @@ clickpad <- function(
     }
     
     background_color <- set_color(
-      default = "#FFFFFF", 
+      default = "rgba(255, 255, 255, 0.5)", 
       not_in_dag = "#FDFDFD", 
-      primary = "#F6E3D1"
+      primary = "rgba(246, 227, 209, 0.75)"
     )
     font_color <- set_color(
       default = "#000000", 
