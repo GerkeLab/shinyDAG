@@ -35,7 +35,10 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
             "Single <code>$</code> need to be escaped: <code>\\$</code>.</p>"
           )
         )),
-        shinycssloaders::withSpinner(uiOutput(ns("tikzOut")), color = "#C4C4C4")
+        tags$div(
+          class = "dag-preview-tikz",
+          shinycssloaders::withSpinner(uiOutput(ns("tikzOut")), color = "#C4C4C4", proxy.height = "400px")
+        )
       )
     ),
     fluidRow(
@@ -44,7 +47,6 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
         tags$div(
           id = ns("showPreviewContainer"),
           prettySwitch(ns("showPreview"), "Preview DAG", status = "primary", fill = TRUE)
-          # uiOutput(ns("showPreview_helptext"))
         )
       ),
       tags$div(
