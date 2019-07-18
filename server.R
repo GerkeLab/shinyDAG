@@ -837,7 +837,8 @@ server <- function(input, output, session) {
       tikz_code_from_app()
     }),
     dag_dagitty,
-    dag_tidy
+    dag_tidy,
+    has_edges = reactive(nrow(edge_frame(rve$edges, rvn$nodes)))
   )
   
   # ---- LaTeX - Editor ----
