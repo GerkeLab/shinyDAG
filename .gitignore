@@ -1,5 +1,6 @@
 # ---- Project files ----
 shiny_bookmarks/
+www/errors/*
 
 # ---- Default .gitignore From grkmisc ----
 .Rproj.user

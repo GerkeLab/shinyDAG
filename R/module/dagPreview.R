@@ -94,24 +94,26 @@ dagPreview <- function(
     req(input$showPreview)
     
     tikz_lines <- tikz_code()
+    req(gsub("\\s", "", tikz_lines) != "")
     
     useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
     
     pkgs <- paste(buildUsepackage(pkg = list("tikz"), uselibrary = useLib), collapse = "\n")
     
-    preview_dir <- tex_cached_preview(
-      session_dir = SESSION_TEMPDIR,
-      obj = tikz_lines,
-      stem = "DAGimage",
-      imgFormat = "png",
-      returnType = "shiny",
-      density = tex_opts$get("density"),
-      keep_pdf = TRUE,
-      usrPackages = pkgs,
-      margin = tex_opts$get("margin"),
-      cleanup = tex_opts$get("cleanup")
-    )
-    tikz_cache_dir(preview_dir)
+    tex_dir <- 
+      tex_cached_preview(
+        session_dir = SESSION_TEMPDIR,
+        obj = tikz_lines,
+        stem = "DAGimage",
+        imgFormat = "png",
+        returnType = "shiny",
+        density = tex_opts$get("density"),
+        keep_pdf = TRUE,
+        usrPackages = pkgs,
+        margin = tex_opts$get("margin"),
+        cleanup = tex_opts$get("cleanup")
+      )
+    tikz_cache_dir(tex_dir)
   }, priority = -100)
   
   tikz_code_debounced <- debounce(tikz_code, 500)
@@ -122,7 +124,8 @@ dagPreview <- function(
     
     shiny::validate(
       shiny::need(
-        tryCatch(tikz_code_debounced(), error = function(e) FALSE),
+        tryCatch({tikz_code_debounced(); TRUE}, error = function(e) FALSE) ||
+          tikz_code_debounced() != "",
         paste(
           "Nothing to see here... yet. Please use the Sketch tab to create", 
           "and layout a DAG."
@@ -250,6 +253,15 @@ tex_cached_preview <- function(session_dir, ...) {
     do.call("texPreview", args)
     cache_dir
   }, error = function(e) {
+    # write bad tex code to disk
+    session_token <- basename(dirname(session_dir))
+    error_dir <- file.path("www", "errors")
+    dir.create(error_dir, showWarnings = FALSE)
+    cat(
+      args$obj, 
+      sep = "\n", 
+      file = file.path(error_dir, paste0(session_token, "_", args_hash, ".tex"))
+    )
     unlink(cache_dir, recursive = TRUE)
     character()
   })
