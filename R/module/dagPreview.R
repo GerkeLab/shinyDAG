@@ -114,9 +114,21 @@ dagPreview <- function(
     tikz_cache_dir(preview_dir)
   }, priority = -100)
   
+  tikz_code_debounced <- debounce(tikz_code, 500)
+  
   # Create tikz preview UI ----
   output$tikzOut <- renderUI({
-    req(tikz_code(), input$showPreview)
+    req(input$showPreview)
+    
+    shiny::validate(
+      shiny::need(
+        tryCatch(tikz_code_debounced(), error = function(e) FALSE),
+        paste(
+          "Nothing to see here... yet. Please use the Sketch tab to create", 
+          "and layout a DAG."
+        )
+      )
+    )
     
     if (is.null(tikz_cache_dir())) return()
     if (!length(tikz_cache_dir())) {
