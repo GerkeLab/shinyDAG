@@ -113,8 +113,20 @@ server <- function(input, output, session) {
   
   node_list_buttons_redraw <- reactiveVal(Sys.time())
   node_list_node_is_new <- reactiveVal(FALSE)
-  node_list_selected_node <- reactive({ node_parent(rvn$nodes) })
-  node_list_selected_child <- reactive({ node_child(rvn$nodes) })
+  node_list_selected_child <- reactive({ node_child(rvn$nodes) }) # TODO: remove
+  node_list_selected_node <- reactiveVal(NULL)
+  observe({
+    I("update selected node?")
+    # this feels hacky but on the one hand we want to be able to update the 
+    # selected parent node just by updating rvn$nodes, and on the other we don't
+    # want to propagate a reactive change if the value stays the same. So this
+    # observer is kind of like a debouncer for node_list_selected_node()
+    current_selected_node <- isolate(node_list_selected_node())
+    new_selected_node <- node_parent(rvn$nodes)
+    if (!identical(current_selected_node, new_selected_node)) {
+      node_list_selected_node(new_selected_node)
+    }
+  })
   
   # debug selected nodes
   observe({
@@ -133,6 +145,7 @@ server <- function(input, output, session) {
   
   # Show, hide or update node name text input
   observe({
+    I("show/hide/update node name text box")
     if (is.null(node_list_selected_node())) {
       shinyjs::hide("node_list_node_name_container")
       return()
@@ -157,12 +170,19 @@ server <- function(input, output, session) {
   }, priority = 1000)
   
   # Handle node name text input
-  observeEvent(input$node_list_node_name, {
-    # node_name_debounced <- debounce(node_list_name, 500)
-    # debug_input(node_label_debounced(), "node_label_debounced")
-    req(node_list_selected_node(), input$node_list_node_name != "")
-    rvn$nodes <- node_update(rvn$nodes, node_list_selected_node(), input$node_list_node_name)
-  }, priority = -1000)
+  node_name_text_input <- reactive({
+    input$node_list_node_name
+  })
+  
+  observe({
+    I("update node name")
+    node_name_debounced <- debounce(node_name_text_input, 750)
+    node_name <- node_name_debounced()
+    debug_input(node_name, "node_list_node_name (debounced)")
+    s_node <- isolate(node_list_selected_node())
+    req(s_node, node_name != "")
+    rvn$nodes <- node_update(isolate(rvn$nodes), s_node, node_name)
+  }, priority = 2000)
   
   # Show editing buttons when appropriate
   observe({
