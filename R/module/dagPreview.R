@@ -31,8 +31,11 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE, start_hidden = FALS
           role="alert",
           HTML(
             "<p>An error occurred while compiling the preview.",
-            "Are there syntax errors in your labels?",
-            "Single <code>$</code> need to be escaped: <code>\\$</code>.</p>"
+            "Are there syntax errors in your labels?</p>",
+            "<p>Note that using characters that are",
+            '<a href="https://en.wikibooks.org/wiki/LaTeX/Special_Characters" target="_blank">reserved', 
+            'characters in LaTeX</a> syntax may cause issues. For example,',
+            "single <code>$</code> need to be escaped: <code>\\$</code>.</p>"
           )
         )),
         tags$div(
