@@ -128,7 +128,7 @@ dagPreview <- function(
     shiny::validate(
       shiny::need(
         tryCatch({tikz_code_debounced(); TRUE}, error = function(e) FALSE) ||
-          tikz_code_debounced() != "",
+          gsub("\\s", "", tikz_code_debounced()) != "",
         paste(
           "Nothing to see here... yet. Please use the Sketch tab to create", 
           "and layout a DAG."
