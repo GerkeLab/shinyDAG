@@ -1,7 +1,7 @@
 
 # UI Function -------------------------------------------------------------
 
-dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
+dagPreviewUI <- function(id, include_graph_downloads = TRUE, start_hidden = FALSE) {
   ns <- shiny::NS(id)
   
   class_3_col <- "col-md-4 col-md-offset-0 col-sm-8 col-sm-offset-2 col-xs-12"
@@ -46,7 +46,7 @@ dagPreviewUI <- function(id, include_graph_downloads = TRUE) {
         class = class_3_col,
         tags$div(
           id = ns("showPreviewContainer"),
-          prettySwitch(ns("showPreview"), "Preview DAG", status = "primary", fill = TRUE)
+          prettySwitch(ns("showPreview"), "Preview DAG", status = "primary", fill = TRUE, value = !start_hidden)
         )
       ),
       tags$div(
