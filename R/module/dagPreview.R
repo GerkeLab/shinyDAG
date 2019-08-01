@@ -244,10 +244,20 @@ tex_cached_preview <- function(session_dir, ...) {
   args <- list(...)
   args_hash <- digest::digest(args)
   
+  session_token <- basename(dirname(session_dir))
+  error_file <- paste0(session_token, "_", args_hash, ".tex")
+  
   cache_dir <- file.path(session_dir, args_hash)
+  error_dir <- file.path("www", "errors")
   
   if (dir.exists(cache_dir)) {
     return(cache_dir)
+  } else {
+    if (file.exists(file.path(error_dir, error_file))) {
+      # we already know that this tikz code won't work
+      warning("Bad tikz is still bad: ", error_file)
+      return(character())
+    }
   }
   
   dir.create(cache_dir, recursive = TRUE)
@@ -257,13 +267,11 @@ tex_cached_preview <- function(session_dir, ...) {
     cache_dir
   }, error = function(e) {
     # write bad tex code to disk
-    session_token <- basename(dirname(session_dir))
-    error_dir <- file.path("www", "errors")
     dir.create(error_dir, showWarnings = FALSE)
     cat(
       args$obj, 
       sep = "\n", 
-      file = file.path(error_dir, paste0(session_token, "_", args_hash, ".tex"))
+      file = file.path(error_dir, error_file)
     )
     unlink(cache_dir, recursive = TRUE)
     character()
