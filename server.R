@@ -284,10 +284,12 @@ server <- function(input, output, session) {
   })
   
   # ---- Sketch - Clickpad ----
+  plotly_source_id <- paste0("clickpad_", session$token)
   clickpad_new_locations <- callModule(
     clickpad, "clickpad", 
     nodes = reactive(rvn$nodes),
-    edges = reactive(rve$edges)
+    edges = reactive(rve$edges),
+    plotly_source = plotly_source_id
   )
   
   observe({
@@ -302,7 +304,9 @@ server <- function(input, output, session) {
   # ---- Sketch - Clickpad - Click Events ----
   observe({
     I("clickpad click event handler")
-    clicked_annotation <- event_data("plotly_clickannotation", source = "clickpad", priority = "event")
+    clicked_annotation <- event_data(
+      "plotly_clickannotation", source = plotly_source_id, priority = "event"
+    )
     req(clicked_annotation[["_input"]]$node_hash)
     
     click_action = isolate(input$clickpad_click_action)
