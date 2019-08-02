@@ -98,6 +98,7 @@ dagPreview <- function(
     
     tikz_lines <- tikz_code()
     req(gsub("\\s", "", tikz_lines) != "")
+    debug_input(tikz_lines, ns("tikz_code"))
     
     useLib <- "\\usetikzlibrary{matrix,arrows,decorations.pathmorphing}"
     
@@ -119,16 +120,14 @@ dagPreview <- function(
     tikz_cache_dir(tex_dir)
   }, priority = -100)
   
-  tikz_code_debounced <- debounce(tikz_code, 500)
-  
   # Create tikz preview UI ----
   output$tikzOut <- renderUI({
     req(input$showPreview)
     
     shiny::validate(
       shiny::need(
-        tryCatch({tikz_code_debounced(); TRUE}, error = function(e) FALSE) ||
-          tryCatch(gsub("\\s", "", tikz_code_debounced()), error = function(e) "") != "",
+        tryCatch({tikz_code(); TRUE}, error = function(e) FALSE) ||
+          tryCatch(gsub("\\s", "", tikz_code()), error = function(e) "") != "",
         paste(
           "Nothing to see here... yet. Please use the Sketch tab to create", 
           "and layout a DAG."
@@ -287,4 +286,3 @@ merge_tex_files <- function(main_file, input_file, out_file) {
   x[which_line] <- paste(y, collapse = "\n")
   writeLines(x, out_file)
 }
-
