@@ -54,7 +54,9 @@ debug_line <- function(...) {
 
 buildUsepackage <- if (length(find("build_usepackage"))) texPreview::build_usepackage else texPreview::buildUsepackage
 
+# use y if x is.null
 `%||%` <- function(x, y) if (is.null(x)) y else x
+# use y if x is not null(ish) (otherwise NULL)
 `%??%` <- function(x, y) if (!is.null(x) && x != "") y
 
 warnNotification <- function(...) showNotification(

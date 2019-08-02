@@ -734,7 +734,7 @@ server <- function(input, output, session) {
         nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
         nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
       ]
-    nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name)
+    nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name_latex)
     nodeFrame$nameA <- nodeFrame$name
     idx_node_adjusted <- which(nodeFrame$hash %in% input$adjustNode)
     nodeFrame$nameA[idx_node_adjusted] <- as.character(
