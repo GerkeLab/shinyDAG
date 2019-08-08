@@ -499,7 +499,7 @@ server <- function(input, output, session) {
   # ---- DAG - Functions ----
   make_dagitty <- function(nodes, edges, exposure = NULL, outcome = NULL, adjusted = NULL) {
     dagitty_edges <- edge_frame(edges, nodes) %>% 
-      glue::glue_data("{from_name} -> {to_name}") %>% 
+      glue::glue_data('"{from_name}" -> "{to_name}"') %>% 
       paste(collapse = "; ")
     
     dagitty_code <- glue::glue("dag {{ {dagitty_edges} }}")
@@ -570,7 +570,9 @@ server <- function(input, output, session) {
       is.null(open_paths$error),
       paste(
         "There was an error building your graph. It may not be fully or",
-        "correctly specified."
+        "correctly specified. If you have special characters in your node",
+        "change the node name to something short and representative. You can",
+        "set more detailed node labels in the \"Tweak\" panel."
       )
     ), errorClass = " text-danger")
     
