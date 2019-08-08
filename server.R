@@ -707,6 +707,7 @@ server <- function(input, output, session) {
   
   tikz_node_points <- reactive({
     req(rvn$nodes)
+    update_tikz_because_global_opts()
     node_frame(rvn$nodes) %>% node_frame_add_style()
   })
   
@@ -785,6 +786,28 @@ server <- function(input, output, session) {
     }
     g
   }
+  
+  # ---- Tweak - Global Options ----
+  update_tikz_because_global_opts <- reactiveVal(FALSE)
+  
+  observe({
+    I("update tex_opts")
+    `%|%` <- function(x, y) {
+      x <- x %||% y
+      if (is.na(x)) y else x
+    }
+    tex_opts$set(list(
+      density = 1200,
+      margin = list(
+        left = input$tex_opts_margin_left %|% 0,
+        top = input$tex_opts_margin_bottom %|% 0, # bug?
+        right = input$tex_opts_margin_right %|% 0,
+        bottom = input$tex_opts_margin_top %|% 0
+      ),
+      cleanup = c("aux", "log")
+    ))
+    update_tikz_because_global_opts(!isolate(update_tikz_because_global_opts()))
+  })
 
   # ---- Tweak - dagitty DAG ----
   dag_dagitty <- reactive({
