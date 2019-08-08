@@ -1,6 +1,6 @@
 # xcolors list ----
 
-if (!file.exists(here::here("data", "xcolors.cvs"))) {
+if (!file.exists(here::here("data", "xcolors.csv"))) {
   message("Getting xcolors color list")
   read_gz <- function(x) readLines(gzcon(url(x)))
   
