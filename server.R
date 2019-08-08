@@ -651,10 +651,10 @@ server <- function(input, output, session) {
         # Edge Color
         col_4(ui_edge_controls(
           hash,
-          inputFn = textInput,
+          inputFn = xcolorPicker,
           prefix_input = "color",
           label = "Edge",
-          value = "black",
+          selected = xcolor_label("Black"),
           width = "95%"
         )),
         # Curve Angle

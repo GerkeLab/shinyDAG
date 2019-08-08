@@ -198,7 +198,7 @@ components$tweak <- tabBox(
   id = "tab_control",
   # ---- Tab: Edit Aesthetics
   tabPanel(
-    "Edit aesthetics",
+    "Edges",
     value = "edit_edge_aesthetics",
     selectInput(
       "arrowShape",
@@ -217,6 +217,11 @@ components$tweak <- tabBox(
       selected = "stealth"
     ),
     uiOutput("edge_aes_ui")
+  ),
+  tabPanel(
+    "Nodes",
+    value = "edit_node_aesthetics",
+    tags$p("Node options here")
   )
 )
 
