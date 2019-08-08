@@ -91,7 +91,8 @@ edge_points <- function(edges, nodes, push_by = 0) {
       from.x = from.x + push_by * d_x,
       from.y = from.y + push_by * d_y,
       to.x = to.x - push_by * d_x,
-      to.y = to.y - push_by * d_y
+      to.y = to.y - push_by * d_y,
+      color = if_else(color == "", "Black", color)
     ) %>% 
     select(-d_x, -d_y)
 }

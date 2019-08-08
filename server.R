@@ -654,7 +654,7 @@ server <- function(input, output, session) {
           inputFn = xcolorPicker,
           prefix_input = "color",
           label = "Edge",
-          selected = xcolor_label("Black"),
+          selected = "Black",
           width = "95%"
         )),
         # Curve Angle

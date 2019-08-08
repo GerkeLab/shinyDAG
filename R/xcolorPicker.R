@@ -1,3 +1,26 @@
+# xcolors list ----
+
+if (!file.exists(here::here("data", "xcolors.cvs"))) {
+  message("Getting xcolors color list")
+  read_gz <- function(x) readLines(gzcon(url(x)))
+  
+  xcolors <- 
+    list(
+      # x11 = "http://www.ukern.de/tex/xcolor/tex/x11nam.def.gz",
+      svg = "http://www.ukern.de/tex/xcolor/tex/svgnam.def.gz"
+    ) %>% 
+    purrr::map(read_gz) %>% 
+    purrr::flatten_chr() %>% 
+    stringr::str_subset("^(%%|\\\\| )", negate = TRUE) %>% 
+    stringr::str_remove("(;%|\\})$") %>% 
+    readr::read_csv(col_names = c("color", "r", "g", "b")) %>% 
+    arrange(color) %>% 
+    readr::write_csv(here::here("data", "xcolors.csv"))
+} else {
+  xcolors <- 
+    here::here("data/xcolors.csv") %>% 
+    read.csv(stringsAsFactors = FALSE)
+}
 
 # Color Functions ----
 
@@ -18,8 +41,8 @@ xcolor_style <- function(hex, text, ...) {
 
 # Prep Color List ----
 
-xcolors <- here::here("data/xcolors.csv") %>% 
-  read.csv(stringsAsFactors = FALSE) %>% 
+xcolors <- 
+  xcolors %>% 
   mutate(
     hex = rgb(r, g, b, maxColorValue = 1),
     text = purrr::map_chr(hex, choose_dark_or_light)
@@ -42,6 +65,7 @@ xcolorPicker <- function(inputId, label = NULL, selected = NULL, ...) {
     label = label,
     choices = c("", xcolors_list),
     multiple = FALSE,
+    selected = selected,
     options = list(
       searchField = "value",
       render = I(
