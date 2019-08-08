@@ -16,6 +16,7 @@ source("R/node.R")
 source("R/edge.R")
 source("R/module/clickpad.R")
 source("R/module/dagPreview.R")
+source("R/xcolorPicker.R")
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
@@ -25,6 +26,7 @@ tex_opts$set(list(
   margin = list(left = 0, top = 0, right = 0, bottom = 0),
   cleanup = c("aux", "log")
 ))
+
 
 
 # Functions ---------------------------------------------------------------
