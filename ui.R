@@ -23,6 +23,9 @@ two_column_flips_on_mobile <- function(left, right, override_width_classes = TRU
   fluidRow(right, left)
 }
 
+col_4 <- function(x) {
+  tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
+}
 
 # Components --------------------------------------------------------------
 
@@ -222,6 +225,25 @@ components$tweak <- tabBox(
     "Nodes",
     value = "edit_node_aesthetics",
     uiOutput("node_aes_ui")
+  ),
+  tabPanel(
+    "Page",
+    value = "edit_page_aesthetics",
+    tags$h3("Margins"),
+    fluidRow(
+      col_4(
+        numericInput("tex_opts_margin_top", "Top", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_right", "Right", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_bottom", "Bottom", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_left", "Left", value = 0L, min = 0L, max = 500L, step = 1L)
+      )
+    )
   )
 )
 
