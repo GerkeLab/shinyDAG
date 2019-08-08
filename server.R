@@ -720,7 +720,6 @@ server <- function(input, output, session) {
     
     styleZ <- paste(
       "\\tikzset{", 
-      "  module/.style={draw, rectangle},",
       paste0("  every node/.style={ }", if (has_style) "," else "\n}"),
       if (has_style) paste(" ", tikz_style_defs, collapse = ",\n"),
       if (has_style) "}",
