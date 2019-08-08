@@ -588,99 +588,8 @@ server <- function(input, output, session) {
     }
   })
   
-  # ---- Tweak - Edit Aesthetics ----
-  
-  # The input for angles (here for easy refactoring or future changes)
-  selectDegree <- function(inputId, label = "Degree", min = -180, max = 180, by = 15, value = 0, ...) {
-    sliderInput(inputId, label = label, min = min, max = max, value = value, step = by)
-  }
-  
-  # These helper functions build up the Edge UI elements.
-  # * ui_edge_controls() builds an individual UI control element. These elements
-  #   are re-rendered whenever the tab is opened, so this function finds the
-  #   current value of the input and uses that instead of the value declared
-  #   in the definition in ui_edge_controls_row(). This function also isolates
-  #   the edge control UI from other changes in nodes, etc, because they happen
-  #   on different screens.
-  #
-  # * ui_edge_controls_row() creates the entire row of UI elements for a given
-  #   edge. This function is where the UI inputs are initially defined.
-  
-  ui_edge_controls <- function(edge_hash, inputFn, prefix_input, label, ...) {
-    current_value_arg_name <- intersect(names(list(...)), c("selected", "value"))
-    if (!length(current_value_arg_name)) {
-      stop("Must specifiy `selected` or `value` when specifying edge UI controls")
-    }
-    input_name <- paste(prefix_input, edge_hash, sep = "_")
-    input_label <- label
-    
-    if (input_name %in% names(isolate(input))) {
-      # Make sure current value doesn't change
-      dots <- list(...)
-      dots[current_value_arg_name] <- paste(isolate(input[[input_name]]))
-      dots$inputId <- input_name
-      dots$label <- HTML(input_label)
-      do.call(inputFn, dots)
-    } else {
-      # Create new input
-      inputFn(input_name, HTML(input_label), ...)
-    }
-  }
-  
-  ui_edge_controls_row <- function(hash, from_name, to_name, ...) {
-    col_4 <- function(x) {
-      tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
-    }
-    title_row <- function(x) tags$div(class = "col-xs-12", tags$h3(x))
-    edge_label <- paste0(from_name, "&nbsp;&#8594; ", to_name)
-    
-    tagList(
-      fluidRow(
-        title_row(HTML(edge_label))
-      ),
-      fluidRow(
-        # Edge Curve Angle
-        col_4(ui_edge_controls(
-          hash,
-          inputFn = selectDegree,
-          prefix_input = "angle",
-          label = "Angle",
-          value = 0,
-          width = "95%"
-        )),
-        # Edge Color
-        col_4(ui_edge_controls(
-          hash,
-          inputFn = xcolorPicker,
-          prefix_input = "color",
-          label = "Edge",
-          selected = "Black",
-          width = "95%"
-        )),
-        # Curve Angle
-        col_4(ui_edge_controls(
-          hash,
-          inputFn = selectInput,
-          prefix_input = "lty",
-          label = "Line Type",
-          choices = c("solid", "dashed"),
-          selected = "solid",
-          width = "95%"
-        )),
-        # Curve Angle
-        col_4(ui_edge_controls(
-          hash,
-          inputFn = selectInput,
-          prefix_input = "lineT",
-          label = "Line Thickness",
-          choices = c("ultra thin", "very thin", "thin", "semithick", "thick", "very thick", "ultra thick"),
-          selected = "thin",
-          width = "95%"
-        ))
-      )
-    )
-  }
-  
+  # ---- Tweak - Edge Aesthetics ----
+
   # Create the edge aesthetics control UI, only updated when tab is activated
   output$edge_aes_ui <- renderUI({
     req(input$shinydag_page == "tweak")
@@ -689,34 +598,71 @@ server <- function(input, output, session) {
       arrange(from_name, to_name)
     
     tagList(
-      purrr:::pmap(rv_edge_frame, ui_edge_controls_row)
+      purrr:::pmap(rv_edge_frame, ui_edge_controls_row, input = input)
     )
   })
   
   # Watch edge UI inputs and update rve$edges when inputs change
   observe({
-    req(length(rve$edges) > 0, grepl("^angle_", names(input)))
+    I("update edge aesthetics")
+    req(length(rve$edges) > 0, grepl("^angle__", names(input)))
     rv_edges <- isolate(rve$edges)
-    edge_ui <- tibble(
-      inputId = grep("^(angle|color|lty|lineT)_", names(input), value = TRUE)
-    ) %>%
-      filter(!grepl("-selectized$", inputId)) %>%
-      # get current value of input
-      mutate(value = lapply(inputId, function(x) input[[x]])) %>%
-      tidyr::separate(inputId, into = c("var", "hash"), sep = "_") %>%
-      tidyr::spread(var, value) %>%
-      tidyr::unnest() %>%
-      split(.$hash)
+    
+    edge_ui <- get_hashed_input_with_prefix(
+      input,
+      prefix = "angle|color|lty|lineT",
+      hash_sep = "__"
+    )
+    
     for (edge in edge_ui) {
       if (!edge$hash %in% names(rv_edges)) next
       this_edge <- edge[setdiff(names(edge), "hash")]
       for (prop in names(this_edge)) {
+        if (is.na(this_edge[[prop]])) next
         rv_edges[[edge$hash]][[prop]] <- this_edge[[prop]]
       }
     }
     debug_input(bind_rows(rv_edges, .id = "hash"), "rve$edges after aes update")
     rve$edges <- rv_edges
   }, priority = -50)
+  
+  # ---- Tweak - Node Aesthetics ----
+  
+  # Create the node aesthetics control UI, only updated when tab is activated
+  output$node_aes_ui <- renderUI({
+    req(input$shinydag_page == "tweak")
+    req(length(isolate(rvn$nodes)) > 0)
+    rv_node_frame <- node_frame(isolate(rvn$nodes))
+    
+    tagList(
+      purrr:::pmap(rv_node_frame, ui_node_controls_row, input = input)
+    )
+  })
+  
+  # Watch edge UI inputs and update rve$edges when inputs change
+  observe({
+    I("update node aesthetics")
+    req(length(rvn$nodes) > 0, grepl("^color_fill_", names(input)))
+    rv_nodes <- isolate(rvn$nodes)
+    
+    node_ui <- get_hashed_input_with_prefix(
+      input,
+      prefix = "name_latex|(color_(draw|fill|text))",
+      hash_sep = "__"
+    )
+    
+    for (node in node_ui) {
+      if (!node$hash %in% names(rv_nodes)) next
+      this_node <- node[setdiff(names(node), "hash")]
+      for (prop in names(this_node)) {
+        if (is.na(this_node[[prop]])) next
+        rv_nodes[[node$hash]][[prop]] <- this_node[[prop]]
+      }
+    }
+    debug_input(bind_rows(rv_nodes, .id = "hash"), "rvn$nodes after aes update")
+    rvn$nodes <- rv_nodes
+  }, priority = -50)
+  
   
   # ---- Global - TikZ Code ----
   edge_points_rv <- reactive({
@@ -727,36 +673,57 @@ server <- function(input, output, session) {
   })
   
   dag_node_lines <- function(nodeFrame) {
-    # Node frame is all points (1, 7) to (7, 1) with columns x, y, name
-    nodeFrame <- nodeFrame[
-      nodeFrame$x >= min(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$x <= max(nodeFrame[!is.na(nodeFrame$name), ]$x) &
-        nodeFrame$y >= min(nodeFrame[!is.na(nodeFrame$name), ]$y) &
-        nodeFrame$y <= max(nodeFrame[!is.na(nodeFrame$name), ]$y),
-      ]
-    nodeFrame$name <- ifelse(is.na(nodeFrame$name), "~", nodeFrame$name_latex)
-    nodeFrame$nameA <- nodeFrame$name
-    idx_node_adjusted <- which(nodeFrame$hash %in% input$adjustNode)
-    nodeFrame$nameA[idx_node_adjusted] <- as.character(
-      glue::glue(" |[module]| {nodeFrame$nameA[idx_node_adjusted]}")
-    )
+    dag_bounds <- 
+      nodeFrame %>% 
+      filter(!is.na(name)) %>% 
+      summarize_at(vars(x, y), list(min = min, max = max))
+    
+    nodeFrame <- nodeFrame %>% 
+      filter(
+        between(x, dag_bounds$x_min, dag_bounds$x_max),
+        between(x, dag_bounds$y_min, dag_bounds$y_max)
+      )
+    
+    nodeFrame[is.na(nodeFrame$tikz_node), "tikz_node"] <- "~"
+    
     nodeLines <- vector("character", 0)
     for (i in unique(nodeFrame$y)) {
-      createLines <- paste0(paste(nodeFrame[nodeFrame$y == i, ]$nameA, collapse = "&"), "\\\\")
+      createLines <- paste0(
+        paste(nodeFrame[nodeFrame$y == i, ]$tikz_node, collapse = " & "), 
+        "  \\\\\n"
+      )
       nodeLines <- c(nodeLines, createLines)
     }
     nodeLines <- rev(nodeLines)
     
-    paste0("\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,text height=1.5ex, text depth=0.25ex, nodes={label}] {", paste(nodeLines, collapse = ""), "};")
+    paste0(
+      "\\matrix(m)[matrix of nodes, row sep=2.6em, column sep=2.8em,", 
+      "text height=1.5ex, text depth=0.25ex]\n", 
+      "{\n  ", paste(nodeLines, collapse = "  "), "};"
+    )
   }
   
-  tikz_code_from_app <- reactive({
+  tikz_node_points <- reactive({
     req(rvn$nodes)
-    nodePts <- node_frame(rvn$nodes)
+    node_frame(rvn$nodes) %>% node_frame_add_style()
+  })
+  
+  tikz_code_from_app <- reactive({
+    d_tikz_node_points <- debounce(tikz_node_points, 1000)
+    nodePts <- d_tikz_node_points()
     req(nrow(nodePts) > 0)
     
-    styleZ <- "\\tikzset{ module/.style={draw, rectangle},
-      label/.style={ } }"
+    has_style <- any(!is.na(nodePts$tikz_style))
+    tikz_style_defs <- nodePts$tikz_style[!is.na(nodePts$tikz_style)]
+    
+    styleZ <- paste(
+      "\\tikzset{", 
+      "  module/.style={draw, rectangle},",
+      paste0("  every node/.style={ }", if (has_style) "," else "\n}"),
+      if (has_style) paste(" ", tikz_style_defs, collapse = ",\n"),
+      if (has_style) "}",
+      sep = "\n"
+    )
     startZ <- "\\begin{tikzpicture}[>=latex]"
     endZ <- "\\end{tikzpicture}"
     pathZ <- "\\path[->,font=\\scriptsize,>=angle 90]"
@@ -778,7 +745,7 @@ server <- function(input, output, session) {
     
     edgeLines <- character()
     
-    if (length(edges_in_dag(rve$edges, rvn$nodes))) {
+    if (length(edges_in_dag(rve$edges, isolate(rvn$nodes)))) {
       # edge_points_rv() is a reactive that gathers values from aesthetics UI
       # but it can be noisy, so we're debouncing to delay TeX rendering until values are constant
       edgePts <- debounce(edge_points_rv, 5000)()

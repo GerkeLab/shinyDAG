@@ -118,11 +118,20 @@ node_frame <- function(nodes, full = FALSE) {
   x <- bind_rows(nodes) %>%
     mutate(hash = names(nodes)) %>%
     select(hash, everything()) %>% 
-    mutate(visible = !is.na(x), in_dag = x > 0)
+    mutate(visible = !is.na(x), in_dag = x > 0) %>% 
+    node_frame_complete()
   if (full) {
     return(x)
   }
   filter(x, in_dag)
+}
+
+node_frame_complete <- function(nodes) {
+  nodes$adjusted   <- nodes[["adjusted"]]   %||% FALSE
+  nodes$color_draw <- nodes[["color_draw"]] %||% "Black"
+  nodes$color_fill <- nodes[["color_fill"]] %||% "White"
+  nodes$color_text <- nodes[["color_text"]] %||% "Black"
+  nodes
 }
 
 node_vertices <- function(nodes) {
@@ -158,6 +167,38 @@ nodes_in_dag <- function(nodes, include_staged = FALSE) {
 node_btn_id <- function(node_hash) paste0("node_toggle_", node_hash)
 node_btn_get_hash <- function(node_btn_id) sub("node_toggle_", "", node_btn_id, fixed = TRUE)
 
+node_tikz_style <- function(hash, adjusted, color_draw, color_fill, color_text, ...) {
+  # B/.style={fill=DarkRed, text=White}
+  if (!adjusted && color_fill == "White" && color_text == "Black") {
+    return(NA_character_)
+  }
+  style <- 
+    list(
+      draw = if (adjusted) color_draw, 
+      fill = color_fill, 
+      text = color_text
+    ) %>% 
+    purrr::compact() %>% 
+    purrr::imap_chr(~ glue::glue("{.y}={.x}")) %>% 
+    paste(collapse = ", ")
+  
+  glue::glue("{hash}/.style={{{style}}}")
+}
+
+node_frame_add_style <- function(nodes) {
+  nodes %>% 
+    mutate(
+      tikz_style = purrr::pmap_chr(nodes, node_tikz_style),
+      name_latex = case_when(
+        is.na(name_latex) | name_latex == "" ~ escape_latex(name),
+        TRUE ~ name_latex
+      ),
+      tikz_node = case_when(
+        !is.na(tikz_style) ~ paste(glue::glue("|[{hash}]| {name_latex}")),
+        TRUE ~ name_latex
+      )
+    )
+}
 
 escape_quotes <- function(x) {
   x %??% gsub("(['\"])", "\\\\\\1", x)

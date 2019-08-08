@@ -221,7 +221,7 @@ components$tweak <- tabBox(
   tabPanel(
     "Nodes",
     value = "edit_node_aesthetics",
-    tags$p("Node options here")
+    uiOutput("node_aes_ui")
   )
 )
 
