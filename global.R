@@ -17,6 +17,7 @@ source("R/edge.R")
 source("R/module/clickpad.R")
 source("R/module/dagPreview.R")
 source("R/xcolorPicker.R")
+source("R/aes_ui.R")
 # Additional libraries: tidyr, digest, rlang
 
 enableBookmarking(store = "server")
