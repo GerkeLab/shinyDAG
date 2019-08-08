@@ -1,6 +1,9 @@
 # xcolors list ----
 
-if (!file.exists(here::here("data", "xcolors.csv"))) {
+if (!file.exists(file.path("data", "xcolors.csv"))) {
+  if (!dir.exists('data')) {
+    stop("Not sure where I am")
+  }
   message("Getting xcolors color list")
   read_gz <- function(x) readLines(gzcon(url(x)))
   
@@ -15,10 +18,10 @@ if (!file.exists(here::here("data", "xcolors.csv"))) {
     stringr::str_remove("(;%|\\})$") %>% 
     readr::read_csv(col_names = c("color", "r", "g", "b")) %>% 
     arrange(color) %>% 
-    readr::write_csv(here::here("data", "xcolors.csv"))
+    readr::write_csv(file.path("data", "xcolors.csv"))
 } else {
   xcolors <- 
-    here::here("data/xcolors.csv") %>% 
+    file.path("data/xcolors.csv") %>% 
     read.csv(stringsAsFactors = FALSE)
 }
 
