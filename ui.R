@@ -1,31 +1,3 @@
-class_3_col <- "col-md-4 col-md-offset-0 col-sm-8 col-sm-offset-2 col-xs-12"
-
-
-# Component Builders ------------------------------------------------------
-
-two_column_flips_on_mobile <- function(left, right, override_width_classes = TRUE) {
-  
-  left_col_class <- "col-sm-12 col-md-pull-6 col-md-6 col-lg-5 col-lg-pull-7"
-  right_col_class <- "col-sm-12 col-md-push-6 col-md-6 col-lg-7 col-lg-push-5"
-  
-  if (!override_width_classes) {
-    right <- tags$div(class = right_col_class, right)
-    left  <- tags$div(class = left_col_class,  left)
-  } else {
-    strip_col_class <- function(x) gsub("col-(xs|sm|md|lg)-\\d{1,2}\\s*", "", x)
-    left$attrib$class  <- strip_col_class(left$attrib$class)
-    right$attrib$class <- strip_col_class(right$attrib$class)
-    
-    left$attrib$class  <- paste(left$attrib$class,  left_col_class)
-    right$attrib$class <- paste(right$attrib$class, right_col_class)
-  }
-  
-  fluidRow(right, left)
-}
-
-col_4 <- function(x) {
-  tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
-}
 
 # Components --------------------------------------------------------------
 
@@ -87,10 +59,17 @@ components$toolbar$node_list_name <- tags$div(
 )
 
 # Components - About ----
-components$about <- tagList(
-  h4("Development Team: Jordan Creed, Travis Gerke, and Garrick Aden-Buie"),
+components$about <- list()
+
+components$about$gerkelab <- tagList(
+  h3("Development Team"),
+  tags$ul(
+    tags$li("Jordan Creed"),
+    tags$li(tags$a(href = "https://www.garrickadebuie.com", "Garrick Aden-Buie")),
+    tags$li(tags$a(href = "https://travisgerke.com", "Travis Gerke"))
+  ),
   p(
-    "For more information on our lab and other projects please check",
+    "For more information about our lab and other projects please check",
     "out our website at",
     tags$a(href = "http://gerkelab.com", "gerkelab.com")
   ),
@@ -102,11 +81,26 @@ components$about <- tagList(
     )
   ),
   p(
-    "Any errors or comments can be directed to",
+    "If you have any questions or comments, we would love to hear them.",
+    "You can email us at",
     tags$a(href = "mailto:travis.gerke@moffitt.org", "travis.gerke@moffitt.org"),
     "or",
-    tags$a(href = "mailto:jordan.h.creed@moffitt.org", "jordan.h.creed@moffitt.org")
+    HTML(paste0(
+      tags$a(href = "mailto:jordan.h.creed@moffitt.org", "jordan.h.creed@moffitt.org"),
+      "."
+    )),
+    "Or feel free to",
+    tags$a(
+      href = "https://github.com/GerkeLab/shinyDAG/issues",
+      "open an issue"
+    ),
+    "in our GitHub repository."
   )
+)
+
+components$about$usage <- tagList(
+  tags$h3("Using shinyDAG"),
+  tags$p("Instructions on usage will be here.")
 )
 
 # Components - Build ----
@@ -337,9 +331,19 @@ function(request) {
         tabItem(
           tabName = "about",
           box(
+            title = "Examples",
+            width = "12 col-md-6",
+            examples_UI("example")
+          ),
+          box(
             title = "About shinyDAG",
-            width = 12,
-            components$about
+            width = "12 col-md-6",
+            components$about$gerkelab
+          ),
+          box(
+            title = "About shinyDAG",
+            width = "12 col-md-6",
+            components$about$usage
           )
         )
       )

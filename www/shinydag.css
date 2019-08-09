@@ -94,6 +94,15 @@ body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   min-height: 400px;
 }
 
+.example-image {
+  text-align: center;
+}
+
+.example-image img {
+  width: 80%;
+  max-width: 500px;
+}
+
 /* ---- ShinyDAG specific tweaks ---- */
 
 #edge_aes_ui label {

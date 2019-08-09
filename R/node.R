@@ -186,6 +186,7 @@ node_tikz_style <- function(hash, adjusted, color_draw, color_fill, color_text, 
 }
 
 node_frame_add_style <- function(nodes) {
+  if (!"name_latex" %in% names(nodes)) nodes$name_latex <- ""
   nodes %>% 
     mutate(
       tikz_style = purrr::pmap_chr(nodes, node_tikz_style),
