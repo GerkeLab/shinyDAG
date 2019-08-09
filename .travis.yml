@@ -1,0 +1,27 @@
+sudo: required
+services:
+  - docker
+
+env:
+  global:
+    - DOCKER_USER="grrrck"
+    - DOCKER_ORG="gerkelab"
+    - secure: "cHdDyac1V5loCeGFS9k+hTejr2cRUWHm5vDB+7vXajkw4ile4mcn+E5vdoy9ExXlaHYuqjrOqURyBAI/HY1U0O06Brif9W8cKlUn7SGwaM6coBgqAxjeOiFDVD9Xg8IOI7wCHjJr9heMRLZyd65cyh9l30S+VKMqx4oFmoYdkvj2v7veDsN9j6kJ7SYGSZOmgv9G/FZmQvyWyLLhpgzMw98WzS2/QsbhG8ZSUmlRYfXo+B1vgw1lDVn8iRFAjG3oFiY4qXTVeaBOi/qAY20Kd44qQpcb2CL1wV/zMjRFGLXtlaBoMMA/4s5uRrFfJHsqUxLIqmhuBlLtqOtyZd2CqP3EGSjkmxfNh/dMDA0zgd3o/IVLuz6owpbHR/9ypUKvuD91vtTp0BUM+6Uma9j+ODC2Zn+IBi6QogjBSBkzz8wEK3TdM2RdjtJ62lBCL8YWxmGCQfIGR+emo1BUFnCsgMYsscC5LoMzFaihBTZAqaMQ3grCi743F2ozHFB3J2DRId1QZD+nje8An3ALsa152BX+ItblyOD7MxfSXa6OtthlholPTiKhYyWBncQqFMBaYsglVVF8MONEYJUzbws2D7+0IdJ5sXZz8XM/sXUwxNkBIpjfQoaqOkYFILCkwab59D7AvZPyYb6hI+XRhvqvA7Z221d+6UloRCFJha/oaR8="
+    - COMMIT=${TRAVIS_COMMIT::8}
+    - REPO="shinydag"
+
+script:
+  - docker build -f Dockerfile -t $DOCKER_ORG/$REPO:$COMMIT .
+
+after_success:
+  - docker login -u $DOCKER_USER -p $DOCKER_PASS
+  - if [[ $TRAVIS_PULL_REQUEST == "false" ]] && [[ $TRAVIS_BRANCH == "master" ]]; then
+    docker tag $DOCKER_ORG/$REPO:$COMMIT $DOCKER_ORG/$REPO:latest;
+    docker tag $DOCKER_ORG/$REPO:$COMMIT $DOCKER_ORG/$REPO:$TRAVIS_BUILD_NUMBER;
+    docker push $DOCKER_ORG/$REPO;
+    fi
+  - if [[ $TRAVIS_PULL_REQUEST == "false" ]] && [[ $TRAVIS_BRANCH == "dev" ]]; then
+    docker tag $DOCKER_ORG/$REPO:$COMMIT $DOCKER_ORG/$REPO:dev;
+    docker tag $DOCKER_ORG/$REPO:$COMMIT $DOCKER_ORG/$REPO:$TRAVIS_BUILD_NUMBER;
+    docker push $DOCKER_ORG/$REPO;
+    fi
