@@ -683,7 +683,7 @@ server <- function(input, output, session) {
     nodeFrame <- nodeFrame %>% 
       filter(
         between(x, dag_bounds$x_min, dag_bounds$x_max),
-        between(x, dag_bounds$y_min, dag_bounds$y_max)
+        between(y, dag_bounds$y_min, dag_bounds$y_max)
       )
     
     nodeFrame[is.na(nodeFrame$tikz_node), "tikz_node"] <- "~"
