@@ -1,0 +1,24 @@
+- name: Classic Confounding
+  description: >
+    This is a description of classic confounding. Descriptions may include
+    <strong>HTML</strong>.
+  file: classic-confounding.rds
+  image: classic-confounding.png
+  
+- name: Differential Loss to Follow-Up
+  description: >
+    This is a description of <em>differential loss to follow up</em>.
+  file: differential-loss-to-follow-up.rds
+  image: differential-loss-to-follow-up.png
+
+- name: Mediator with Confounding
+  description: >
+    This is a description of a <em>mediator with confounding</em>.
+  file: mediator-with-confounding.rds
+  image: mediator-with-confounding.png
+  
+- name: Selection Bias
+  description: >
+    This is a description of a <em>selection bias</em>.
+  file: selection-bias.rds
+  image: selection-bias.png

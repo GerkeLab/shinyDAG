@@ -706,9 +706,11 @@ server <- function(input, output, session) {
   }
   
   tikz_node_points <- reactive({
-    req(rvn$nodes)
+    req(length(rvn$nodes))
     update_tikz_because_global_opts()
-    node_frame(rvn$nodes) %>% node_frame_add_style()
+    node_df <- node_frame(rvn$nodes)
+    req(nrow(node_df) > 0)
+    node_df %>% node_frame_add_style()
   })
   
   tikz_code_from_app <- reactive({
@@ -874,5 +876,20 @@ server <- function(input, output, session) {
       input$manual_tikz
     })
   )
+  
+  # ---- About - Examples ----
+  example_value <- callModule(examples, "example")
+  
+  observe({
+    req(example_value())
+    
+    ex_val <- example_value()
+    rvn$nodes <- ex_val$nodes
+    rve$edges <- ex_val$edges
+    
+    Sys.sleep(0.25)
+    shinydashboard::updateTabItems(session, "shinydag_page", "sketch")
+    
+  })
 
 }

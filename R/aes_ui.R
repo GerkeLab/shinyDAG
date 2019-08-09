@@ -58,6 +58,8 @@ selectDegree <- function(inputId, label = "Degree", min = -180, max = 180, by = 
 
 ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
   stopifnot(!is.null(input))
+  
+  extra <- list(...)
 
   col_4 <- function(x) {
     tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
@@ -76,7 +78,7 @@ ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
         inputFn = selectDegree,
         prefix_input = "angle",
         label = "Angle",
-        value = 0,
+        value = extra[["angle"]] %||% 0,
         width = "95%",
         input = input
       )),
@@ -86,7 +88,7 @@ ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
         inputFn = xcolorPicker,
         prefix_input = "color",
         label = "Edge",
-        selected = "Black",
+        selected = extra[["color"]] %||% "Black",
         width = "95%",
         input = input
       )),
@@ -97,7 +99,7 @@ ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
         prefix_input = "lty",
         label = "Line Type",
         choices = c("solid", "dashed"),
-        selected = "solid",
+        selected = extra[["lty"]] %||% "solid",
         width = "95%",
         input = input
       )),
@@ -108,7 +110,7 @@ ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
         prefix_input = "lineT",
         label = "Line Thickness",
         choices = c("ultra thin", "very thin", "thin", "semithick", "thick", "very thick", "ultra thick"),
-        selected = "thin",
+        selected = extra[["lineT"]] %||% "thin",
         width = "95%",
         input = input
       ))
@@ -121,6 +123,8 @@ ui_edge_controls_row <- function(hash, from_name, to_name, ..., input = NULL) {
 
 ui_node_controls_row <- function(hash, name, adjusted, name_latex, ..., input = NULL) {
   stopifnot(!is.null(input))
+  
+  extra <- list(...)
 
   col_4 <- function(x) {
     tags$div(class = "col-sm-6 col-md-3", style = "min-height: 80px", x)
@@ -148,7 +152,7 @@ ui_node_controls_row <- function(hash, name, adjusted, name_latex, ..., input = 
         inputFn = xcolorPicker,
         prefix_input = "color_text",
         label = "Text",
-        selected = "Black",
+        selected = extra[["color_text"]] %||% "Black",
         width = "95%",
         input = input
       )),
@@ -158,7 +162,7 @@ ui_node_controls_row <- function(hash, name, adjusted, name_latex, ..., input = 
         inputFn = xcolorPicker,
         prefix_input = "color_fill",
         label = "Fill",
-        selected = "White",
+        selected = extra[["color_fill"]] %||% "White",
         width = "95%",
         input = input
       )),
@@ -169,7 +173,7 @@ ui_node_controls_row <- function(hash, name, adjusted, name_latex, ..., input = 
           inputFn = xcolorPicker,
           prefix_input = "color_draw",
           label = "Border",
-          selected = "Black",
+          selected = extra[["color_draw"]] %||% "Black",
           width = "95%",
           input = input
         ))
