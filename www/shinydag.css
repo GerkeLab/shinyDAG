@@ -1,0 +1,264 @@
+@import url('https://fonts.googleapis.com/css?family=Lato:300,400,400i,700,700i');
+
+@media (min-width: 768px) and (max-width: 991px) {
+  #shinydag-toolbar-node-list-action {
+    padding-top: 32px;
+  }
+}
+
+/* ---- GerkeLab Admin LTE Theme Tweaks ---- */
+body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
+  font-family: Lato, sans-serif;
+}
+
+.main-header > .logo {
+  color: #989898 !important;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.main-header {
+  position: fixed;
+  width: 100%;
+  box-shadow: 0 3px 3px rgba(0,0,0,0.1) !important;
+  -webkit-box-shadow: 0 3px 3px rgba(0,0,0,0.1) !important;
+}
+
+.wrapper, .content-wrapper {
+  min-height: 100vh !important;
+  height: 100% !important;
+  background-color: #f0f0f0 !important;
+}
+
+@media (max-width:767px) {
+  .content-wrapper {
+    padding-top: 100px;
+  }
+}
+@media (min-width:768px) {
+  .content-wrapper {
+    padding-top: 50px;
+  }
+}
+
+.skin-black .main-header .navbar .navbar-custom-menu .navbar-nav > li > a,
+.skin-black .main-header .navbar .navbar-right > li > a {
+  border-left: none;
+}
+
+.gerkelab-logo {
+  background: url("GerkeLab.png");
+  background-size: contain;
+  width: 100px;
+  height: 100px;
+  position: absolute;
+  bottom: 25px;
+  left: 65px;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.2));
+  transition: z-index 0s, left 0.25s ease-in-out, filter 0.25s ease-in-out, opacity 1s ease-in-out;
+  z-index: 1000;
+  opacity: 1;
+}
+
+.sidebar-collapse .gerkelab-logo {
+  transition: z-index 0s 0.5s, left 0.25s ease-in-out, filter 0.25s ease-in-out;
+  z-index: 0;
+  left: 2%;
+  bottom: 25px;
+}
+
+.sidebar-collapse .gerkelab-logo:hover {
+  filter: drop-shadow(0 0 1px rgba(0,0,0,0.2));
+}
+
+@media (max-width: 767px) {
+  .gerkelab-logo {
+    z-index: 0;
+    opacity: 0;
+  }
+}
+
+.disable-buttons {
+  pointer-events: none;
+}
+
+.disabled {
+  pointer-events: none;
+}
+
+#shiny-tab-sketch .box {
+  margin-bottom: 100px;
+}
+
+.dag-preview-tikz {
+  min-height: 400px;
+}
+
+.example-image {
+  text-align: center;
+}
+
+.example-image img {
+  width: 80%;
+  max-width: 500px;
+}
+
+/* ---- ShinyDAG specific tweaks ---- */
+
+#edge_aes_ui label {
+  color: #777;
+  font-weight: normal;
+}
+
+#showPreviewContainer {
+  padding-top: 32px;
+}
+
+.dagpreview-download-ui {
+  padding-top: 25px;
+}
+
+#node_delete {
+  margin-top: 20px;
+  color: #FFF
+}
+
+#edge_btn {
+  margin-top: 25px;
+  color: #FFF
+}
+
+#ui_edge_swap_btn {
+  margin-top: 25px;
+}
+
+@media (min-width: 768px) {
+  #node_delete {
+    margin-left: -25px;
+  }
+}
+
+.edge-selector-hint {
+  font-size: 28px;
+  line-height: 14px;
+  padding-left: 4px;
+  vertical-align: top;
+}
+
+.help-block {
+  padding-top: 0;
+  font-style: italic;
+}
+
+.help-block.text-warning {
+  color: #db8b0b;
+  background-color: #db8b0b20;
+}
+
+.help-block.text-danger {
+  color: #d33724;
+  background-color: #d3372420;
+}
+
+#edge_list_helptext .help-block, #node_list_helptext .help-block {
+  padding: 0.5em;
+  border-radius: 3px;
+}
+
+.btn-text {
+  padding-left: 5px;
+}
+
+@media (min-width: 992px) and (max-width: 1825px) {
+  .btn-text {
+    display: none;
+  }
+}
+
+.gerkelab-spinner {
+    margin: auto;
+    width: 100px;
+    height: 100px;
+    background: url("GerkeLab.png");
+    background-size: cover;
+    -webkit-animation-name: spin;
+    -webkit-animation-duration: 4000ms;
+    -webkit-animation-iteration-count: infinite;
+    -webkit-animation-timing-function: linear;
+    -moz-animation-name: spin;
+    -moz-animation-duration: 4000ms;
+    -moz-animation-iteration-count: infinite;
+    -moz-animation-timing-function: linear;
+    -ms-animation-name: spin;
+    -ms-animation-duration: 4000ms;
+    -ms-animation-iteration-count: infinite;
+    -ms-animation-timing-function: linear;
+    
+    animation-name: spin;
+    animation-duration: 4000ms;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+}
+@-ms-keyframes spin {
+    from { -ms-transform: rotate(0deg); }
+    to { -ms-transform: rotate(-360deg); }
+}
+@-moz-keyframes spin {
+    from { -moz-transform: rotate(0deg); }
+    to { -moz-transform: rotate(-360deg); }
+}
+@-webkit-keyframes spin {
+    from { -webkit-transform: rotate(0deg); }
+    to { -webkit-transform: rotate(-360deg); }
+}
+@keyframes spin {
+    from {
+        transform:rotate(0deg);
+    }
+    to {
+        transform:rotate(-360deg);
+    }
+}
+
+.alert-edge {
+  animation: fadeout 5s;
+  -moz-animation: fadeout 5s;
+  -webkit-animation: fadeout 5s;
+  -o-animation: fadeout 5s;
+}
+
+@keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@-moz-keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@-webkit-keyframes fadeout {
+    0% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}

@@ -1,0 +1,23 @@
+- name: Classic Confounding
+  description: >
+    This depicts <em>classic confounding</em>, where a confounder C is a common cause of exposure (E) and outcome (Y).
+  file: classic-confounding.rds
+  image: classic-confounding.png
+  
+- name: Differential Loss to Follow-Up
+  description: >
+    This depicts <em>differential loss to follow up</em>, where patients may be censored (C) depending on their value of L.
+  file: differential-loss-to-follow-up.rds
+  image: differential-loss-to-follow-up.png
+
+- name: Mediator with Confounding
+  description: >
+    This shows a <em>mediator with confounding</em>, where the variable M mediates the effect of E on Y, which is confounded by the variable C.
+  file: mediator-with-confounding.rds
+  image: mediator-with-confounding.png
+  
+- name: Selection Bias
+  description: >
+    This depicts classic <em>selection bias</em>, where C denotes criteria under which the data are observed which, in turn, is a downstream consequence of exposure (E) and outcome (D).
+  file: selection-bias.rds
+  image: selection-bias.png

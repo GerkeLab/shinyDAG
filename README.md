@@ -6,29 +6,29 @@ shinyDAG is a web application that uses R and LaTeX to create publication-qualit
 
 ### Adding nodes and edges
 
-![Alt Text](https://github.com/GerkeLab/ShinyDAG/raw/master/Figures/AddNodeEdge.gif)
+![Alt Text](Figures/AddNodeEdge.gif)
 
 ### Editing DAG aesthetics
 
-![Alt Text](https://github.com/GerkeLab/ShinyDAG/raw/master/Figures/editEdge.gif)
+![Alt Text](Figures/editEdge.gif)
 
 ## Examplary usage
 
 The following DAG was reproduced from "A structural approach to selection bias"<sup>5</sup> (Figure 6A) using the shinyDAG web app.
 
-![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1.png "Hernan Example")
+![alt text](Figures/example1.png "Hernan Example")
 
 For comparison, the DAG from the original article is shown below.
 
-![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/example1_hernan.png "Hernan Original")
+![alt text](Figures/example1_hernan.png "Hernan Original")
 
 The DAG represents a study on the effects of antiretroviral therapy (E) on AIDS risk (D), where immunosuppression (U) is unmeasured. L represents presence of symptoms (such as fever, weight loss, and diarrhea) and C represents censoring. A spurious path exists between E and D due to selection bias. We can see this in shinyDAG by ensuring that we've selected E as the exposure, D as the outcome, adjusted for C, and then toggling the "Examine DAG elements" button in the bottom left corner. The spurious open path is displayed as D <- U -> L -> C <- E.
 
-![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/paths.png "shinyDAG path output")
+![alt text](Figures/paths.png "shinyDAG path output")
 
 One possible resolution for this bias is to adjust for L. After toggling L in the "Select nodes to adjust" section, we see that all spurious E to D paths are now closed.
 
-![alt text](https://github.com/tgerke/ShinyDAG/raw/master/Figures/paths2.png "shinyDAG final path output")
+![alt text](Figures/paths2.png "shinyDAG final path output")
 
 ## Other features
 

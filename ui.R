@@ -1,0 +1,357 @@
+
+# Components --------------------------------------------------------------
+
+components <- list(toolbar = list())
+
+# Components - Clickpad ----
+components$toolbar$clickpad_action <- tags$div(
+  radioSwitchButtons(
+    "clickpad_click_action",
+    HTML(paste(icon("mouse-pointer"), "Click a node to...")),
+    choices = c("Select" = "parent", "Draw/Remove Edge" = "child"),
+    selected = "parent",
+    selected_background = "#D3751C"
+  )
+)
+
+# Components - Node List ----
+components$toolbar$node_list_actions <- tags$div(
+  class = "btn-toolbar",
+  role = "toolbar",
+  tags$form(
+    class = "form-inline",
+    tags$div(
+      class = "form-group",
+      tags$div(
+        class = "btn-group",
+        role = "group",
+        actionButton(
+          input = "node_list_node_add", 
+          label = "Add New Node", 
+          icon = icon("plus"),
+          alt = "Add New Node to Workspace",
+          `data-toggle` = "tooltip",
+          `data-placement` = "bottom",
+          title = "Add New Node to Workspace"
+        ),
+        shinyjs::hidden(
+          actionButton(
+            "node_list_node_delete", "Delete Node", icon("trash"),
+            alt = "Delete Node",
+            `data-toggle` = "tooltip",
+            `data-placement` = "bottom",
+            title = "Delete Node")
+        )
+      )
+    )
+  )
+)
+
+components$toolbar$node_list_name <- tags$div(
+  style = "padding-top: 15px; min-height: 90px;",
+  shinyjs::hidden(
+    tags$div(
+      id = "node_list_node_name_container",
+      class = "col-xs-12",
+      textInput("node_list_node_name", "Node Name", width = "100%")
+    )
+  )
+)
+
+# Components - About ----
+components$about <- list()
+
+components$about$gerkelab <- tagList(
+  h3("Development Team"),
+  tags$ul(
+    tags$li("Jordan Creed"),
+    tags$li(tags$a(href = "https://www.garrickadebuie.com", "Garrick Aden-Buie")),
+    tags$li(tags$a(href = "https://travisgerke.com", "Travis Gerke"))
+  ),
+  p(
+    "For more information about our lab and other projects please check",
+    "out our website at",
+    tags$a(href = "http://gerkelab.com", "gerkelab.com")
+  ),
+  p(
+    "All code and detailed instructions for usage is available on GitHub at",
+    tags$a(
+      href = "https://github.com/GerkeLab/shinyDAG",
+      "GerkeLab/shinyDag"
+    )
+  ),
+  p(
+    "If you have any questions or comments, we would love to hear them.",
+    "You can email us at",
+    tags$a(href = "mailto:travis.gerke@moffitt.org", "travis.gerke@moffitt.org"),
+    "or",
+    HTML(paste0(
+      tags$a(href = "mailto:jordan.h.creed@moffitt.org", "jordan.h.creed@moffitt.org"),
+      "."
+    )),
+    "Or feel free to",
+    tags$a(
+      href = "https://github.com/GerkeLab/shinyDAG/issues",
+      "open an issue"
+    ),
+    "in our GitHub repository."
+  )
+)
+
+# components$about$usage <- tagList(
+#   tags$h3("Using shinyDAG"),
+#   tags$p(
+#     "For more details on using shinyDAG please check out our",
+#     tags$a(
+#       href = "https://github.com/GerkeLab/shinyDAG/blob/master/README.md",
+#       "README."
+#     ))
+# )
+
+# Components - Build ----
+components$build <- box(
+  title = "Build",
+  id = "build-box",
+  width = 12,
+  fluidRow(
+    id = "shinydag-toolbar",
+    tags$div(
+      class = "col-xs-12 col-md-5 shinydag-toolbar-actions",
+      tags$div(
+        class = "col-xs-12 col-sm-6 col-md-12",
+        id = "shinydag-toolbar-node-list-action",
+        components$toolbar$node_list_action
+      ),
+      tags$div(
+        class = "col-xs-12 col-sm-6 col-md-12",
+        style = "padding: 10px",
+        id = "shinydag-toolbar-clickpad-action",
+        components$toolbar$clickpad_action
+      )
+    ),
+    tags$div(
+      class = "col-xs-12 col-md-7",
+      components$toolbar$node_list_name
+    )
+  ),
+  fluidRow(
+    column(
+      width = 12,
+      tags$div(
+        class = "pull-left",
+        uiOutput("node_list_helptext")
+      ),
+      shinyThings::undoHistoryUI(
+        id = "undo_rv", 
+        class = "pull-right",
+        back_text = "Undo",
+        fwd_text = "Redo"
+      )
+    )
+  ),
+  fluidRow(
+    column(
+      width = 12,
+      clickpad_UI("clickpad", height = "600px", width = "100%")
+    )
+  ),
+  if (getOption("shinydag.debug", FALSE)) fluidRow(
+    column(width = 12, shinyThings::undoHistoryUI_debug("undo_rv"))
+  ),
+  fluidRow(
+    tags$div(
+      class = class_3_col,
+      selectInput("exposureNode", "Exposure", choices = c("None" = ""), width = "100%")
+    ),
+    tags$div(
+      class = class_3_col,
+      selectInput("outcomeNode", "Outcome", choices = c("None" = ""), width = "100%")
+    ),
+    tags$div(
+      class = class_3_col,
+      selectizeInput("adjustNode", "Adjust for...", choices = c("None" = ""), width = "100%", multiple = TRUE)
+    )
+  ),
+  fluidRow(
+    tags$div(
+      class = "col-sm-12",
+      uiOutput("openExpOutcomePaths")
+    )
+  )
+)
+
+# Components - LaTeX ----
+components$latex <- tagList(
+  tags$p(
+    "Use this tab to manually edit the TikZ generated by shinyDAG."
+  ),
+  helpText(
+    "Note that changes made to the TikZ code below will not affect",
+    "the DAG settings in the app. Changes made to the DAG elsewhere",
+    "in shinyDAG will overwrite any changes made to the manually",
+    "edited TikZ code below."
+  ),
+  uiOutput("texEdit")
+)
+
+# Components - Tweak ----
+components$tweak <- tabBox(
+  title = "Edit DAG",
+  id = "tab_control",
+  # ---- Tab: Edit Aesthetics
+  tabPanel(
+    "Edges",
+    value = "edit_edge_aesthetics",
+    selectInput(
+      "arrowShape",
+      "Select arrow head",
+      choices = c(
+        "stealth",
+        "stealth'",
+        "diamond",
+        "triangle 90",
+        "hooks",
+        "triangle 45",
+        "triangle 60",
+        "hooks reversed",
+        "*"
+      ),
+      selected = "stealth"
+    ),
+    uiOutput("edge_aes_ui")
+  ),
+  tabPanel(
+    "Nodes",
+    value = "edit_node_aesthetics",
+    uiOutput("node_aes_ui")
+  ),
+  tabPanel(
+    "Page",
+    value = "edit_page_aesthetics",
+    tags$h3("Margins"),
+    fluidRow(
+      col_4(
+        numericInput("tex_opts_margin_top", "Top", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_right", "Right", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_bottom", "Bottom", value = 0L, min = 0L, max = 500L, step = 1L)
+      ),
+      col_4(
+        numericInput("tex_opts_margin_left", "Left", value = 0L, min = 0L, max = 500L, step = 1L)
+      )
+    )
+  )
+)
+
+# UI - shinyDAG -----------------------------------------------------------
+
+function(request) {
+  dashboardPage(
+    title = "shinyDAG",
+    skin = "black",
+    dashboardHeader(
+      title = "shinyDAG",
+      tags$li(
+        class = "dropdown",
+        actionLink(
+          inputId = "._bookmark_", 
+          label = "Bookmark",
+          icon = icon("link", lib = "glyphicon"),
+          title = "Bookmark shinyDAG's state and get a URL for sharing.",
+          `data-toggle` = "tooltip",
+          `data-placement` = "bottom"
+        )
+      ),
+      tags$li(
+        class = "dropdown",
+        tags$a(
+          href = "https://github.com/gerkelab/shinyDAG/",
+          title = "shinyDAG on GitHub",
+          target = "_blank",
+          icon("github")
+        )
+      ),
+      tags$li(
+        class = "dropdown",
+        tags$a(
+          href = "https://gerkelab.com/project/shinyDAG/",
+          title = "GerkeLab Project Page",
+          target = "_blank",
+          icon("flask")
+        )
+      )
+    ),
+    dashboardSidebar(
+      sidebarMenu(
+        id = "shinydag_page",
+        menuItem("Sketch", tabName = "sketch", icon = icon("share-alt")),
+        menuItem("Tweak", tabName = "tweak", icon = icon("sliders")),
+        menuItem("LaTeX", tabName = "latex", icon = icon("file-text-o")),
+        menuItem("About", tabName = "about", icon = icon("info"))
+      )
+    ),
+    dashboardBody(
+      shinyjs::useShinyjs(),
+      tags$script(src = "shinydag.js", async = TRUE),
+      includeCSS("www/AdminLTE.gerkelab.min.css"),
+      includeCSS("www/_all-skins.gerkelab.min.css"),
+      includeCSS("www/shinydag.css"),
+      chooseSliderSkin("Flat", "#418c7a"),
+      tags$a(
+        href = "https://gerkelab.com", 
+        target = "_blank", 
+        tags$div(class = "gerkelab-logo")
+      ),
+      tabItems(
+        tabItem(
+          tabName = "sketch",
+          components$build
+        ),
+        tabItem(
+          tabName = "tweak",
+          two_column_flips_on_mobile(
+            components$tweak,
+            box(
+              title = "Preview DAG",
+              dagPreviewUI("tweak_preview", include_graph_downloads = TRUE)
+            )
+          )
+        ),
+        tabItem(
+          tabName = "latex",
+          two_column_flips_on_mobile(
+            box(
+              title = "Edit LaTeX",
+              components$latex
+            ),
+            box(
+              title = "Preview LaTeX",
+              dagPreviewUI("latex_preview", include_graph_downloads = FALSE)
+            )
+          )
+        ),
+        tabItem(
+          tabName = "about",
+          box(
+            title = "Examples",
+            width = "12 col-md-6",
+            examples_UI("example")
+          ),
+          box(
+            title = "About shinyDAG",
+            width = "12 col-md-6",
+            components$about$gerkelab
+          )#,
+          # box(
+          #   title = "About shinyDAG",
+          #   width = "12 col-md-6",
+          #   components$about$usage
+          # )
+        )
+      )
+    )
+  )
+}
