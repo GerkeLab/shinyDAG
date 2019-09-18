@@ -1,7 +1,6 @@
 - name: Classic Confounding
   description: >
-    This is a description of classic confounding. Descriptions may include
-    <strong>HTML</strong>.
+    This is a description of <em>classic confounding</em>.
   file: classic-confounding.rds
   image: classic-confounding.png
   

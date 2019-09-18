@@ -74,7 +74,7 @@ components$about$gerkelab <- tagList(
     tags$a(href = "http://gerkelab.com", "gerkelab.com")
   ),
   p(
-    "All code is available on GitHub at",
+    "All code and detailed instructions for usage is available on GitHub at",
     tags$a(
       href = "https://github.com/GerkeLab/shinyDAG",
       "GerkeLab/shinyDag"
@@ -98,10 +98,15 @@ components$about$gerkelab <- tagList(
   )
 )
 
-components$about$usage <- tagList(
-  tags$h3("Using shinyDAG"),
-  tags$p("Instructions on usage will be here.")
-)
+# components$about$usage <- tagList(
+#   tags$h3("Using shinyDAG"),
+#   tags$p(
+#     "For more details on using shinyDAG please check out our",
+#     tags$a(
+#       href = "https://github.com/GerkeLab/shinyDAG/blob/master/README.md",
+#       "README."
+#     ))
+# )
 
 # Components - Build ----
 components$build <- box(
@@ -339,12 +344,12 @@ function(request) {
             title = "About shinyDAG",
             width = "12 col-md-6",
             components$about$gerkelab
-          ),
-          box(
-            title = "About shinyDAG",
-            width = "12 col-md-6",
-            components$about$usage
-          )
+          )#,
+          # box(
+          #   title = "About shinyDAG",
+          #   width = "12 col-md-6",
+          #   components$about$usage
+          # )
         )
       )
     )
