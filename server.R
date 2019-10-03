@@ -529,6 +529,21 @@ server <- function(input, output, session) {
     exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
   }
   
+  dagitty_sets <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
+    gd <- make_dagitty(
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
+    )
+    
+    minimal_sets <- adjustmentSets(
+      gd,
+      exposure = exposure %??% unname(node_names[exposure]),
+      outcome = outcome %??% unname(node_names[outcome]),
+    )
+    
+  }
+  
   dagitty_format_paths <- function(paths) {
     HTML(paste0(
       "<pre><code>",
@@ -550,7 +565,8 @@ server <- function(input, output, session) {
     validate(
       need(
         length(missing_nodes) == 0,
-        glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
+        # glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
+        glue::glue("")
       )
     )
     
@@ -562,10 +578,9 @@ server <- function(input, output, session) {
   
   
   output$openExpOutcomePaths <- renderUI({
-    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
+    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
     
     open_paths <- dagitty_open_exp_outcome_paths()
-    open_paths$result <- grep("<-", open_paths$result, value=TRUE, invert = TRUE)
     
     validate(need(
       is.null(open_paths$error),
@@ -577,12 +592,15 @@ server <- function(input, output, session) {
       )
     ), errorClass = " text-danger")
     
-    open_paths <- open_paths$result
+    open_paths_direct <- grep("<-", open_paths$result, value=TRUE, invert = TRUE)
+    open_paths_indirect <- grep("<-", open_paths$result, value=TRUE)
     
     if (length(open_paths)) {
       tagList(
         h5("Open causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths)
+        dagitty_format_paths(open_paths_direct),
+        h5("Open non-causal associations between exposure and outcome"),
+        dagitty_format_paths(open_paths_indirect)
       )
     } else {
       tagList(
@@ -591,14 +609,36 @@ server <- function(input, output, session) {
     }
   })
   
-  output$openExpOutcomePathsIndirect <- renderUI({
+  # ---- Sketch - DAG - minimal adjustment sets ----
+  dagitty_minimal_adjustment_sets <- reactive({
+    req(
+      length(nodes_in_dag(rvn$nodes)),
+      length(edges_in_dag(rve$edges, rvn$nodes))
+    )
+    
+    # need both exposure and outcome node
+    requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
+    missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
+    validate(
+      need(
+        length(missing_nodes) == 0,
+        glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
+      )
+    )
+    
+    purrr::safely(dagitty_sets)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
+  output$adjustmentSets <- renderUI({
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
     
-    open_paths <- dagitty_open_exp_outcome_paths()
-    open_paths$result <- grep("<-", open_paths$result, value=TRUE)
+    adj_sets <- dagitty_minimal_adjustment_sets()
     
     validate(need(
-      is.null(open_paths$error),
+      is.null(adj_sets$error),
       paste(
         "There was an error building your graph. It may not be fully or",
         "correctly specified. If you have special characters in your node",
@@ -607,16 +647,16 @@ server <- function(input, output, session) {
       )
     ), errorClass = " text-danger")
     
-    open_paths <- open_paths$result
+    adj_sets <- adj_sets$result
     
-    if (length(open_paths)) {
+    if (length(adj_sets)) {
       tagList(
-        h5("Open non-causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths)
+        h5("Minimal adjustment sets between exposure and outcome"),
+        adj_sets
       )
     } else {
       tagList(
-        helpText("No open non-causal associations between exposure and outcome.")
+        helpText("No minimal adjustment sets between exposure and outcome.")
       )
     }
   })

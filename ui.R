@@ -174,13 +174,19 @@ components$build <- box(
   ),
   fluidRow(
     tags$div(
-      class = "col-sm-6",
-      uiOutput("openExpOutcomePaths")
-    ),
+      class = "col-sm-12",
+      uiOutput("adjustmentSets")
+    )
+  ),
+  fluidRow(
     tags$div(
-      class = "col-sm-6",
-      uiOutput("openExpOutcomePathsIndirect")
-    )  
+      class = "col-sm-12",
+      uiOutput("openExpOutcomePaths")
+    )#,
+    # tags$div(
+    #   class = "col-sm-6",
+    #   uiOutput("openExpOutcomePathsIndirect")
+    # )  
   )
 )
 
