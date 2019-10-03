@@ -565,6 +565,7 @@ server <- function(input, output, session) {
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
     
     open_paths <- dagitty_open_exp_outcome_paths()
+    open_paths$result <- grep("<-", open_paths$result, value=TRUE, invert = TRUE)
     
     validate(need(
       is.null(open_paths$error),
@@ -580,12 +581,42 @@ server <- function(input, output, session) {
     
     if (length(open_paths)) {
       tagList(
-        h5("Open associations between exposure and outcome"),
+        h5("Open causal associations between exposure and outcome"),
         dagitty_format_paths(open_paths)
       )
     } else {
       tagList(
-        helpText("No open associations between exposure and outcome.")
+        helpText("No open causal associations between exposure and outcome.")
+      )
+    }
+  })
+  
+  output$openExpOutcomePathsIndirect <- renderUI({
+    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
+    
+    open_paths <- dagitty_open_exp_outcome_paths()
+    open_paths$result <- grep("<-", open_paths$result, value=TRUE)
+    
+    validate(need(
+      is.null(open_paths$error),
+      paste(
+        "There was an error building your graph. It may not be fully or",
+        "correctly specified. If you have special characters in your node",
+        "change the node name to something short and representative. You can",
+        "set more detailed node labels in the \"Tweak\" panel."
+      )
+    ), errorClass = " text-danger")
+    
+    open_paths <- open_paths$result
+    
+    if (length(open_paths)) {
+      tagList(
+        h5("Open non-causal associations between exposure and outcome"),
+        dagitty_format_paths(open_paths)
+      )
+    } else {
+      tagList(
+        helpText("No open non-causal associations between exposure and outcome.")
       )
     }
   })
