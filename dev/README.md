@@ -16,7 +16,7 @@ docker build -t shinydag-dev .
 
 # move back to shinyDAG proper and start up the dev image
 cd ..
-docker run --rm -p 8787:8787 -v $(pwd):/home/rstudio/shinydag -e PASSWORD="password" shinydag-dev
+docker run --rm -d -p 8787:8787 -v $(pwd):/home/rstudio/shinydag -e PASSWORD="password" shinydag-dev
 ```
 
 (Note that you should probably change the password above, but if you're only running locally it's not a big deal.)
