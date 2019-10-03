@@ -520,10 +520,26 @@ server <- function(input, output, session) {
       edges = edges, nodes = nodes,
       exposure = exposure, outcome = outcome, adjusted = adjusted
     )
-    
+
     exp_outcome_paths <- paths(
       gd,
       Z = adjusted %??% unname(node_names[adjusted])
+    )
+
+    exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
+  }
+  
+  dagitty_open_paths_causal <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
+    gd <- make_dagitty(
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
+    )
+    
+    exp_outcome_paths <- paths(
+      gd,
+      Z = adjusted %??% unname(node_names[adjusted]),
+      directed=TRUE
     )
     
     exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
@@ -576,14 +592,38 @@ server <- function(input, output, session) {
     )
   })
   
+  dagitty_open_exp_outcome_paths_causal <- reactive({
+    req(
+      length(nodes_in_dag(rvn$nodes)),
+      length(edges_in_dag(rve$edges, rvn$nodes))
+    )
+    
+    # need both exposure and outcome node
+    requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
+    missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
+    validate(
+      need(
+        length(missing_nodes) == 0,
+        # glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
+        glue::glue("")
+      )
+    )
+    
+    purrr::safely(dagitty_open_paths_causal)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
   
   output$openExpOutcomePaths <- renderUI({
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
     
     open_paths <- dagitty_open_exp_outcome_paths()
+    open_paths_causal <- dagitty_open_exp_outcome_paths_causal()
     
     validate(need(
-      is.null(open_paths$error),
+      is.null(open_paths$error) | is.null(open_paths_causal$error),
       paste(
         "There was an error building your graph. It may not be fully or",
         "correctly specified. If you have special characters in your node",
@@ -592,8 +632,8 @@ server <- function(input, output, session) {
       )
     ), errorClass = " text-danger")
     
-    open_paths_direct <- grep("<-", open_paths$result, value=TRUE, invert = TRUE)
-    open_paths_indirect <- grep("<-", open_paths$result, value=TRUE)
+    open_paths_direct <- open_paths_causal$result
+    open_paths_indirect <- dplyr::setdiff(open_paths$result,open_paths_causal$result)
     
     if (length(open_paths)) {
       tagList(
