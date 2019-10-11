@@ -106,6 +106,14 @@ node_adjusted <- function(nodes) {
   names(node_with_attribute(nodes, "adjusted"))
 }
 
+node_exposure <- function(nodes) {
+  names(node_with_attribute(nodes, "exposure"))
+}
+
+node_outcome <- function(nodes) {
+  names(node_with_attribute(nodes, "outcome"))
+}
+
 node_delete <- function(nodes, hash) {
   .nodes <- nodes[setdiff(names(nodes), hash)]
   if (length(.nodes)) .nodes else list()

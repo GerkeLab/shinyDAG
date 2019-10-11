@@ -419,7 +419,23 @@ server <- function(input, output, session) {
     available_choices <- c("None" = "", node_names(nodes))
     if (!none_choice) available_choices <- available_choices[-1]
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
-    if (!length(s_choice) && none_choice) s_choice <- ""
+    # If inputId doesn't overlap with choices, lookup state in rvn$nodes
+    if (!length(s_choice) || s_choice == "") {
+      s_choice <- switch(
+        inputId,
+        "adjustNode" = node_adjusted(nodes),
+        "exposureNode" = node_exposure(nodes),
+        "outcomeNode" = node_outcome(nodes),
+        character(0)
+      )
+    }
+    s_choice <- intersect(s_choice, available_choices)
+    if (inputId == "adjustNode") debug_input(nodes, "nodes for E/O/A")
+    debug_input(s_choice, inputId)
+    # Fall back to the none choice
+    if (!length(s_choice) && none_choice) {
+      s_choice <- ""
+    }
     
     updateFn(
       session,
@@ -888,6 +904,7 @@ server <- function(input, output, session) {
     rve$edges <- ex_val$edges
     
     Sys.sleep(0.25)
+
     shinydashboard::updateTabItems(session, "shinydag_page", "sketch")
     
   })
