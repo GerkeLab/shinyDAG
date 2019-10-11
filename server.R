@@ -711,7 +711,7 @@ server <- function(input, output, session) {
     update_tikz_because_global_opts()
     node_df <- node_frame(rvn$nodes)
     req(nrow(node_df) > 0)
-    node_df %>% node_frame_add_style()
+    node_frame_add_style(node_df)
   })
   
   tikz_code_from_app <- reactive({
