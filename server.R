@@ -472,12 +472,12 @@ server <- function(input, output, session) {
     }
   })
   
-  observeEvent(input$adjustNode, {
+  observe({
     nodes <- isolate(rvn$nodes)
-    if (is.null(input$adjustNode)) return()
-    s_adjust <- input$adjustNode
+    debug_input(input$adjustNode, "input$adjustNode")
+    s_adjust <- input$adjustNode %||% ""
     rvn$nodes <- if (length(s_adjust) == 1 && s_adjust == "") {
-      node_unset_attribute(nodes, names(node), "adjusted")
+      node_unset_attribute(nodes, names(nodes), "adjusted")
     } else {
       node_set_attribute(nodes, s_adjust, "adjusted")
     }
