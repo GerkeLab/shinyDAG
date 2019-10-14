@@ -214,6 +214,7 @@ server <- function(input, output, session) {
     
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
     
+    updateRadioSwitchButtons("clickpad_click_action", selected = "parent")
     shinyjs::hide("node_list_node_name_container")
     shinyjs::hide("node_list_node_delete")
   })
