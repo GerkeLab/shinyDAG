@@ -1,6 +1,11 @@
 
 # Server ------------------------------------------------------------------
 server <- function(input, output, session) {
+  # ---- Global - Debug ----
+  observeEvent(input$debug_browse, {
+    browser()
+  })
+  
   # ---- Global - Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
   dir.create(SESSION_TEMPDIR, showWarnings = FALSE)
@@ -209,6 +214,7 @@ server <- function(input, output, session) {
     
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
     
+    updateRadioSwitchButtons("clickpad_click_action", selected = "parent")
     shinyjs::hide("node_list_node_name_container")
     shinyjs::hide("node_list_node_delete")
   })
@@ -293,12 +299,12 @@ server <- function(input, output, session) {
   )
   
   observe({
-    req(clickpad_new_locations())
-    
     new <- clickpad_new_locations()
+    
+    req(new)
     debug_input(new, "clickpad_new_locations()")
     
-    rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
+    rvn$nodes <- node_update(isolate(rvn$nodes), new$hash, x = unname(new$x), y = unname(new$y))
   })
   
   # ---- Sketch - Clickpad - Click Events ----

@@ -187,7 +187,8 @@ clickpad <- function(
   
   annotations <- reactive({
     if (is.null(nodes()) || length(nodes()) == 0) return(NULL)
-    node_frame(nodes(), full = TRUE) %>% 
+    nodes() %>% 
+      node_frame(full = TRUE) %>% 
       purrr::pmap(create_node_annotations)
   })
   
@@ -263,8 +264,10 @@ clickpad <- function(
     
     if (is.na(annot_index) || !is.integer(annot_index)) return()
     
+    
     if (length(annotations()) <= annot_index) {
-      stop("An error occurred, unable to match plotly update to correct node")
+      warning("An error occurred, unable to match plotly update to correct node")
+      return(NULL)
     }
     
     node_hash <- annotations()[[annot_index + 1]]$node_hash
