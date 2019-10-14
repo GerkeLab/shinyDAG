@@ -298,12 +298,12 @@ server <- function(input, output, session) {
   )
   
   observe({
-    req(clickpad_new_locations())
-    
     new <- clickpad_new_locations()
+    
+    req(new)
     debug_input(new, "clickpad_new_locations()")
     
-    rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
+    rvn$nodes <- node_update(isolate(rvn$nodes), new$hash, x = unname(new$x), y = unname(new$y))
   })
   
   # ---- Sketch - Clickpad - Click Events ----
