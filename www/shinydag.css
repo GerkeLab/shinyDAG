@@ -6,6 +6,13 @@
   }
 }
 
+.debug-buttons {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 10000;
+}
+
 /* ---- GerkeLab Admin LTE Theme Tweaks ---- */
 body, h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .main-header .logo {
   font-family: Lato, sans-serif;

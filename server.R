@@ -1,6 +1,11 @@
 
 # Server ------------------------------------------------------------------
 server <- function(input, output, session) {
+  # ---- Global - Debug ----
+  observeEvent(input$debug_browse, {
+    browser()
+  })
+  
   # ---- Global - Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
   dir.create(SESSION_TEMPDIR, showWarnings = FALSE)
