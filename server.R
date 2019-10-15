@@ -639,11 +639,11 @@ server <- function(input, output, session) {
     fluidRow(
       class = "dag-diagnostic__result",
       tags$div(
-        class = "col-sm-6 col-lg-3 dag-diagnostic__label",
+        class = "col-sm-6 col-lg-4 dag-diagnostic__label",
         tags$p(tags$strong(label))
       ),
       tags$div(
-        class = "col-sm-6 col-lg-9 dag-diagnostic__value",
+        class = "col-sm-6 col-lg-8 dag-diagnostic__value",
         ...
       )
     )
