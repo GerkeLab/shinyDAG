@@ -1,6 +1,11 @@
 
 # Server ------------------------------------------------------------------
 server <- function(input, output, session) {
+  # ---- Global - Debug ----
+  observeEvent(input$debug_browse, {
+    browser()
+  })
+  
   # ---- Global - Session Temp Directory ----
   SESSION_TEMPDIR <- file.path("www", session$token)
   dir.create(SESSION_TEMPDIR, showWarnings = FALSE)
@@ -209,6 +214,7 @@ server <- function(input, output, session) {
     
     if (length(edges_with_node)) rve$edges[edges_with_node] <- NULL
     
+    updateRadioSwitchButtons("clickpad_click_action", selected = "parent")
     shinyjs::hide("node_list_node_name_container")
     shinyjs::hide("node_list_node_delete")
   })
@@ -293,12 +299,12 @@ server <- function(input, output, session) {
   )
   
   observe({
-    req(clickpad_new_locations())
-    
     new <- clickpad_new_locations()
+    
+    req(new)
     debug_input(new, "clickpad_new_locations()")
     
-    rvn$nodes <- node_update(rvn$nodes, new$hash, x = unname(new$x), y = unname(new$y))
+    rvn$nodes <- node_update(isolate(rvn$nodes), new$hash, x = unname(new$x), y = unname(new$y))
   })
   
   # ---- Sketch - Clickpad - Click Events ----
@@ -419,7 +425,23 @@ server <- function(input, output, session) {
     available_choices <- c("None" = "", node_names(nodes))
     if (!none_choice) available_choices <- available_choices[-1]
     s_choice <- intersect(isolate(input[[inputId]]), available_choices)
-    if (!length(s_choice) && none_choice) s_choice <- ""
+    # If inputId doesn't overlap with choices, lookup state in rvn$nodes
+    if (!length(s_choice) || s_choice == "") {
+      s_choice <- switch(
+        inputId,
+        "adjustNode" = node_adjusted(nodes),
+        "exposureNode" = node_exposure(nodes),
+        "outcomeNode" = node_outcome(nodes),
+        character(0)
+      )
+    }
+    s_choice <- intersect(s_choice, available_choices)
+    if (inputId == "adjustNode") debug_input(nodes, "nodes for E/O/A")
+    debug_input(s_choice, inputId)
+    # Fall back to the none choice
+    if (!length(s_choice) && none_choice) {
+      s_choice <- ""
+    }
     
     updateFn(
       session,
@@ -472,12 +494,12 @@ server <- function(input, output, session) {
     }
   })
   
-  observeEvent(input$adjustNode, {
+  observe({
     nodes <- isolate(rvn$nodes)
-    if (is.null(input$adjustNode)) return()
-    s_adjust <- input$adjustNode
+    debug_input(input$adjustNode, "input$adjustNode")
+    s_adjust <- input$adjustNode %||% ""
     rvn$nodes <- if (length(s_adjust) == 1 && s_adjust == "") {
-      node_unset_attribute(nodes, names(node), "adjusted")
+      node_unset_attribute(nodes, names(nodes), "adjusted")
     } else {
       node_set_attribute(nodes, s_adjust, "adjusted")
     }
@@ -817,11 +839,12 @@ server <- function(input, output, session) {
   }
   
   tikz_node_points <- reactive({
+    req(input$shinydag_page %in% c("tweak", "latex"))
     req(length(rvn$nodes))
     update_tikz_because_global_opts()
     node_df <- node_frame(rvn$nodes)
     req(nrow(node_df) > 0)
-    node_df %>% node_frame_add_style()
+    node_frame_add_style(node_df)
   })
   
   tikz_code_from_app <- reactive({
@@ -999,6 +1022,7 @@ server <- function(input, output, session) {
     rve$edges <- ex_val$edges
     
     Sys.sleep(0.25)
+
     shinydashboard::updateTabItems(session, "shinydag_page", "sketch")
     
   })

@@ -315,6 +315,13 @@ function(request) {
         target = "_blank", 
         tags$div(class = "gerkelab-logo")
       ),
+      if (isTRUE(getOption("shinydag.debug", FALSE))) tagList(
+        div(
+          class = 'btn-group debug-buttons',
+          actionButton("debug_browse", "Browse"),
+          actionButton("debug_trigger", label = "Trigger Debug")
+        )
+      ),
       tabItems(
         tabItem(
           tabName = "sketch",

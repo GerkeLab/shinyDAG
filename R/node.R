@@ -106,6 +106,14 @@ node_adjusted <- function(nodes) {
   names(node_with_attribute(nodes, "adjusted"))
 }
 
+node_exposure <- function(nodes) {
+  names(node_with_attribute(nodes, "exposure"))
+}
+
+node_outcome <- function(nodes) {
+  names(node_with_attribute(nodes, "outcome"))
+}
+
 node_delete <- function(nodes, hash) {
   .nodes <- nodes[setdiff(names(nodes), hash)]
   if (length(.nodes)) .nodes else list()
@@ -187,6 +195,7 @@ node_tikz_style <- function(hash, adjusted, color_draw, color_fill, color_text, 
 
 node_frame_add_style <- function(nodes) {
   if (!"name_latex" %in% names(nodes)) nodes$name_latex <- ""
+  nodes <- node_frame_replace_default(nodes)
   nodes %>% 
     mutate(
       tikz_style = purrr::pmap_chr(nodes, node_tikz_style),
@@ -199,6 +208,21 @@ node_frame_add_style <- function(nodes) {
         TRUE ~ name_latex
       )
     )
+}
+
+node_frame_replace_default <- function(nodes) {
+  tidyr::replace_na(nodes, list(
+    child = FALSE,
+    exposure = FALSE,
+    outcome = FALSE,
+    adjusted = FALSE,
+    name_latex = "",
+    visible = FALSE,
+    in_dag = FALSE,
+    color_draw = "Black",
+    color_fill = "White",
+    color_text = "Black"
+  ))
 }
 
 escape_quotes <- function(x) {
