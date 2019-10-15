@@ -673,8 +673,8 @@ server <- function(input, output, session) {
     open_paths_indirect <- setdiff(open_paths$result, open_paths_causal$result)
     adj_sets <- adj_sets$result
     
-    tags$div(
-      class = "col-sm-12 col-md-9 col-lg-6",
+    tagList(
+      h4("Exposure and Outcome Information"),
       dag_diagnostic_result(
         label = "Minimal Adjustment Set", 
         if (length(adj_sets)) {
