@@ -175,18 +175,8 @@ components$build <- box(
   fluidRow(
     tags$div(
       class = "col-sm-12",
-      uiOutput("adjustmentSets")
+      uiOutput("dagExposureOutcomeDiagnositcs")
     )
-  ),
-  fluidRow(
-    tags$div(
-      class = "col-sm-12",
-      uiOutput("openExpOutcomePaths")
-    )#,
-    # tags$div(
-    #   class = "col-sm-6",
-    #   uiOutput("openExpOutcomePathsIndirect")
-    # )  
   )
 )
 

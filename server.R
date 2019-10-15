@@ -591,88 +591,7 @@ server <- function(input, output, session) {
   }
   
   # ---- Sketch - DAG - Open Exp/Outcome Paths ----
-  dagitty_open_exp_outcome_paths <- reactive({
-    req(
-      length(nodes_in_dag(rvn$nodes)),
-      length(edges_in_dag(rve$edges, rvn$nodes))
-    )
-    
-    # need both exposure and outcome node
-    requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
-    missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
-    validate(
-      need(
-        length(missing_nodes) == 0,
-        # glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
-        glue::glue("")
-      )
-    )
-    
-    purrr::safely(dagitty_open_paths)(
-      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
-      outcome = input$outcomeNode, adjusted = input$adjustNode
-    )
-  })
-  
-  dagitty_open_exp_outcome_paths_causal <- reactive({
-    req(
-      length(nodes_in_dag(rvn$nodes)),
-      length(edges_in_dag(rve$edges, rvn$nodes))
-    )
-    
-    # need both exposure and outcome node
-    requires_nodes <- c("Exposure" = input$exposureNode, "Outcome" = input$outcomeNode)
-    missing_nodes <- names(requires_nodes[grepl("^$", requires_nodes)])
-    validate(
-      need(
-        length(missing_nodes) == 0,
-        # glue::glue("Please choose {str_and(missing_nodes)} {str_plural(missing_nodes, 'node')}")
-        glue::glue("")
-      )
-    )
-    
-    purrr::safely(dagitty_open_paths_causal)(
-      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
-      outcome = input$outcomeNode, adjusted = input$adjustNode
-    )
-  })
-  
-  
-  output$openExpOutcomePaths <- renderUI({
-    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
-    
-    open_paths <- dagitty_open_exp_outcome_paths()
-    open_paths_causal <- dagitty_open_exp_outcome_paths_causal()
-    
-    validate(need(
-      is.null(open_paths$error) | is.null(open_paths_causal$error),
-      paste(
-        "There was an error building your graph. It may not be fully or",
-        "correctly specified. If you have special characters in your node",
-        "change the node name to something short and representative. You can",
-        "set more detailed node labels in the \"Tweak\" panel."
-      )
-    ), errorClass = " text-danger")
-    
-    open_paths_direct <- open_paths_causal$result
-    open_paths_indirect <- dplyr::setdiff(open_paths$result,open_paths_causal$result)
-    
-    if (length(open_paths)) {
-      tagList(
-        h5("Open causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths_direct),
-        h5("Open non-causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths_indirect)
-      )
-    } else {
-      tagList(
-        helpText("No open causal associations between exposure and outcome.")
-      )
-    }
-  })
-  
-  # ---- Sketch - DAG - minimal adjustment sets ----
-  dagitty_minimal_adjustment_sets <- reactive({
+  dagitty_has_required_nodes <- reactive({
     req(
       length(nodes_in_dag(rvn$nodes)),
       length(edges_in_dag(rve$edges, rvn$nodes))
@@ -688,19 +607,48 @@ server <- function(input, output, session) {
       )
     )
     
+    TRUE
+  })
+  
+  dagitty_open_exp_outcome_paths <- reactive({
+    dagitty_has_required_nodes()
+    
+    purrr::safely(dagitty_open_paths)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
+  dagitty_open_exp_outcome_paths_causal <- reactive({
+    dagitty_has_required_nodes()
+    
+    purrr::safely(dagitty_open_paths_causal)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
+  dagitty_minimal_adjustment_sets <- reactive({
+    dagitty_has_required_nodes()
+    
     purrr::safely(dagitty_sets)(
       nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
       outcome = input$outcomeNode, adjusted = input$adjustNode
     )
   })
   
-  output$adjustmentSets <- renderUI({
-    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
+  output$dagExposureOutcomeDiagnositcs <- renderUI({
+    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
     
+    if ((input$debug_trigger %||% 0) > 0) browser()
+    dagitty_has_required_nodes()
+    
+    open_paths <- dagitty_open_exp_outcome_paths()
+    open_paths_causal <- dagitty_open_exp_outcome_paths_causal()
     adj_sets <- dagitty_minimal_adjustment_sets()
     
     validate(need(
-      is.null(adj_sets$error),
+      is.null(open_paths$error) | is.null(open_paths_causal$error),
       paste(
         "There was an error building your graph. It may not be fully or",
         "correctly specified. If you have special characters in your node",
@@ -709,9 +657,24 @@ server <- function(input, output, session) {
       )
     ), errorClass = " text-danger")
     
+    open_paths_direct <- open_paths_causal$result
+    open_paths_indirect <- setdiff(open_paths$result, open_paths_causal$result)
     adj_sets <- adj_sets$result
     
-    if (length(adj_sets)) {
+    open_paths_UI <- if (length(open_paths)) {
+      tagList(
+        h5("Open causal associations between exposure and outcome"),
+        dagitty_format_paths(open_paths_direct),
+        h5("Open non-causal associations between exposure and outcome"),
+        dagitty_format_paths(open_paths_indirect)
+      )
+    } else {
+      tagList(
+        helpText("No open causal associations between exposure and outcome.")
+      )
+    }
+    
+    adj_sets_UI <- if (length(adj_sets)) {
       tagList(
         h5("Minimal adjustment sets between exposure and outcome"),
         adj_sets
@@ -721,6 +684,11 @@ server <- function(input, output, session) {
         helpText("No minimal adjustment sets between exposure and outcome.")
       )
     }
+    
+    tagList(
+      adj_sets_UI,
+      open_paths_UI
+    )
   })
   
   # ---- Tweak - Edge Aesthetics ----
