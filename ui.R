@@ -173,10 +173,8 @@ components$build <- box(
     )
   ),
   fluidRow(
-    tags$div(
-      class = "col-sm-12",
+      tags$div(class = "col-sm-12", h4("Exposure and Outcome Information")),
       uiOutput("dagExposureOutcomeDiagnositcs")
-    )
   )
 )
 

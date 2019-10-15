@@ -583,11 +583,9 @@ server <- function(input, output, session) {
   }
   
   dagitty_format_paths <- function(paths) {
-    HTML(paste0(
-      "<pre><code>",
-      paste(trimws(paths), collapse = "\n"),
-      "\n</code></pre>"
-    ))
+    tagList(
+      lapply(trimws(paths), function(x) tags$p(tags$code(x)))
+    )
   }
   
   # ---- Sketch - DAG - Open Exp/Outcome Paths ----
@@ -637,6 +635,20 @@ server <- function(input, output, session) {
     )
   })
   
+  dag_diagnostic_result <- function(label, ...) {
+    fluidRow(
+      class = "dag-diagnostic__result",
+      tags$div(
+        class = "col-sm-6 col-lg-3 dag-diagnostic__label",
+        tags$p(tags$strong(label))
+      ),
+      tags$div(
+        class = "col-sm-6 col-lg-9 dag-diagnostic__value",
+        ...
+      )
+    )
+  }
+  
   output$dagExposureOutcomeDiagnositcs <- renderUI({
     validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
     
@@ -661,33 +673,32 @@ server <- function(input, output, session) {
     open_paths_indirect <- setdiff(open_paths$result, open_paths_causal$result)
     adj_sets <- adj_sets$result
     
-    open_paths_UI <- if (length(open_paths)) {
-      tagList(
-        h5("Open causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths_direct),
-        h5("Open non-causal associations between exposure and outcome"),
-        dagitty_format_paths(open_paths_indirect)
+    tags$div(
+      class = "col-sm-12 col-md-9 col-lg-6",
+      dag_diagnostic_result(
+        label = "Minimal Adjustment Set", 
+        if (length(adj_sets)) {
+          adj_sets
+        } else helpText(
+          "No minimal adjustment sets between exposure and outcome."
+        )
+      ),
+      dag_diagnostic_result(
+        label = "Open Causal Associations", 
+        if (length(open_paths_direct)) {
+          dagitty_format_paths(open_paths_direct)
+        } else helpText(
+          "No open causal associations between exposure and outcome."
+        )
+      ),
+      dag_diagnostic_result(
+        label = "Open Non-Causal Associations", 
+        if (length(open_paths_indirect)) {
+          dagitty_format_paths(open_paths_indirect)
+        } else helpText(
+          "No open non-causal associations between exposure and outcome."
+        )
       )
-    } else {
-      tagList(
-        helpText("No open causal associations between exposure and outcome.")
-      )
-    }
-    
-    adj_sets_UI <- if (length(adj_sets)) {
-      tagList(
-        h5("Minimal adjustment sets between exposure and outcome"),
-        adj_sets
-      )
-    } else {
-      tagList(
-        helpText("No minimal adjustment sets between exposure and outcome.")
-      )
-    }
-    
-    tagList(
-      adj_sets_UI,
-      open_paths_UI
     )
   })
   
