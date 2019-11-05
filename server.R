@@ -672,13 +672,17 @@ server <- function(input, output, session) {
     open_paths_direct <- open_paths_causal$result
     open_paths_indirect <- setdiff(open_paths$result, open_paths_causal$result)
     adj_sets <- adj_sets$result
+    cleaning_sets <- c()
+    for(i in 1:length(adj_sets)){
+      cleaning_sets <- c(cleaning_sets,paste0("{",adj_sets[[i]][1],",", adj_sets[[i]][2],"}"))
+    }
     
     tagList(
       h4("Exposure and Outcome Information"),
       dag_diagnostic_result(
         label = "Minimal Adjustment Set", 
-        if (length(adj_sets)) {
-          adj_sets
+        if (cleaning_sets!="{NULL,NULL}") {
+          paste(cleaning_sets, collapse=" ")
         } else helpText(
           "No minimal adjustment sets between exposure and outcome."
         )
