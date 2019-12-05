@@ -542,25 +542,54 @@ server <- function(input, output, session) {
       edges = edges, nodes = nodes,
       exposure = exposure, outcome = outcome, adjusted = adjusted
     )
-    
+
     exp_outcome_paths <- paths(
       gd,
       Z = adjusted %??% unname(node_names[adjusted])
+    )
+
+    exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
+  }
+  
+  dagitty_open_paths_causal <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
+    gd <- make_dagitty(
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
+    )
+    
+    exp_outcome_paths <- paths(
+      gd,
+      Z = adjusted %??% unname(node_names[adjusted]),
+      directed=TRUE
     )
     
     exp_outcome_paths$paths[as.logical(exp_outcome_paths$open)]
   }
   
+  dagitty_sets <- function(nodes, edges, exposure, outcome, adjusted) {
+    node_names <- invertNames(node_names(nodes))
+    gd <- make_dagitty(
+      edges = edges, nodes = nodes,
+      exposure = exposure, outcome = outcome, adjusted = adjusted
+    )
+    
+    minimal_sets <- adjustmentSets(
+      gd,
+      exposure = exposure %??% unname(node_names[exposure]),
+      outcome = outcome %??% unname(node_names[outcome]),
+    )
+    
+  }
+  
   dagitty_format_paths <- function(paths) {
-    HTML(paste0(
-      "<pre><code>",
-      paste(trimws(paths), collapse = "\n"),
-      "\n</code></pre>"
-    ))
+    tagList(
+      lapply(trimws(paths), function(x) tags$p(tags$code(x)))
+    )
   }
   
   # ---- Sketch - DAG - Open Exp/Outcome Paths ----
-  dagitty_open_exp_outcome_paths <- reactive({
+  dagitty_has_required_nodes <- reactive({
     req(
       length(nodes_in_dag(rvn$nodes)),
       length(edges_in_dag(rve$edges, rvn$nodes))
@@ -576,20 +605,62 @@ server <- function(input, output, session) {
       )
     )
     
+    TRUE
+  })
+  
+  dagitty_open_exp_outcome_paths <- reactive({
+    dagitty_has_required_nodes()
+    
     purrr::safely(dagitty_open_paths)(
       nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
       outcome = input$outcomeNode, adjusted = input$adjustNode
     )
   })
   
+  dagitty_open_exp_outcome_paths_causal <- reactive({
+    dagitty_has_required_nodes()
+    
+    purrr::safely(dagitty_open_paths_causal)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
   
-  output$openExpOutcomePaths <- renderUI({
-    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, "Please add at least one edge"))
+  dagitty_minimal_adjustment_sets <- reactive({
+    dagitty_has_required_nodes()
+    
+    purrr::safely(dagitty_sets)(
+      nodes = rvn$nodes, edges = rve$edges, exposure = input$exposureNode, 
+      outcome = input$outcomeNode, adjusted = input$adjustNode
+    )
+  })
+  
+  dag_diagnostic_result <- function(label, ...) {
+    fluidRow(
+      class = "dag-diagnostic__result",
+      tags$div(
+        class = "col-sm-6 col-lg-4 dag-diagnostic__label",
+        tags$p(tags$strong(label))
+      ),
+      tags$div(
+        class = "col-sm-6 col-lg-8 dag-diagnostic__value",
+        ...
+      )
+    )
+  }
+  
+  output$dagExposureOutcomeDiagnositcs <- renderUI({
+    validate(need(length(edges_in_dag(rve$edges, rvn$nodes)) > 0, ""))
+    
+    if ((input$debug_trigger %||% 0) > 0) browser()
+    dagitty_has_required_nodes()
     
     open_paths <- dagitty_open_exp_outcome_paths()
+    open_paths_causal <- dagitty_open_exp_outcome_paths_causal()
+    adj_sets <- dagitty_minimal_adjustment_sets()
     
     validate(need(
-      is.null(open_paths$error),
+      is.null(open_paths$error) | is.null(open_paths_causal$error),
       paste(
         "There was an error building your graph. It may not be fully or",
         "correctly specified. If you have special characters in your node",
@@ -598,18 +669,41 @@ server <- function(input, output, session) {
       )
     ), errorClass = " text-danger")
     
-    open_paths <- open_paths$result
-    
-    if (length(open_paths)) {
-      tagList(
-        h5("Open associations between exposure and outcome"),
-        dagitty_format_paths(open_paths)
-      )
-    } else {
-      tagList(
-        helpText("No open associations between exposure and outcome.")
-      )
+    open_paths_direct <- open_paths_causal$result
+    open_paths_indirect <- setdiff(open_paths$result, open_paths_causal$result)
+    adj_sets <- adj_sets$result
+    cleaning_sets <- c()
+    for(i in 1:length(adj_sets)){
+      cleaning_sets <- c(cleaning_sets,paste0("{",adj_sets[[i]][1],",", adj_sets[[i]][2],"}"))
     }
+    
+    tagList(
+      h4("Exposure and Outcome Information"),
+      dag_diagnostic_result(
+        label = "Minimal Adjustment Set", 
+        if (cleaning_sets!="{NULL,NULL}") {
+          paste(cleaning_sets, collapse=" ")
+        } else helpText(
+          "No minimal adjustment sets between exposure and outcome."
+        )
+      ),
+      dag_diagnostic_result(
+        label = "Open Causal Associations", 
+        if (length(open_paths_direct)) {
+          dagitty_format_paths(open_paths_direct)
+        } else helpText(
+          "No open causal associations between exposure and outcome."
+        )
+      ),
+      dag_diagnostic_result(
+        label = "Open Non-Causal Associations", 
+        if (length(open_paths_indirect)) {
+          dagitty_format_paths(open_paths_indirect)
+        } else helpText(
+          "No open non-causal associations between exposure and outcome."
+        )
+      )
+    )
   })
   
   # ---- Tweak - Edge Aesthetics ----
